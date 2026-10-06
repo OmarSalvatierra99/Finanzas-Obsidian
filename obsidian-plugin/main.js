@@ -24,7 +24,7 @@ class FinanceView extends ItemView {
         this.buttons = {};
         for (const section of Object.keys(SECTIONS)) {
             const button = toolbar.createEl('button', {text: section[0].toUpperCase()+section.slice(1)});
-            button.addEventListener('click', () => this.navigate(section));
+            this.registerDomEvent(button, 'click', () => this.navigate(section));
             this.buttons[section] = button;
         }
         this.status = this.contentEl.createDiv({cls: 'finanzas-service-status', attr: {role:'status'}});
@@ -32,19 +32,19 @@ class FinanceView extends ItemView {
         this.webview.className = 'finanzas-webview';
         // Use Obsidian's persistent browser session: it cleans unknown vault partitions on startup.
         this.webview.setAttribute('webpreferences', 'contextIsolation=yes,nodeIntegration=no');
-        this.webview.addEventListener('dom-ready', () => {
+        this.registerDomEvent(this.webview, 'dom-ready', () => {
             this.status.textContent = '';
             this.applyTheme();
         });
-        this.webview.addEventListener('did-fail-load', event => {
+        this.registerDomEvent(this.webview, 'did-fail-load', event => {
             if (event.isMainFrame && event.errorCode !== -3) this.status.textContent = 'No se pudo cargar Finanzas. Pulsa Inicio para reintentar.';
         });
-        this.webview.addEventListener('did-navigate', event => {
+        this.registerDomEvent(this.webview, 'did-navigate', event => {
             const current = new URL(event.url);
             this.section = Object.keys(SECTIONS).find(key => SECTIONS[key] === current.pathname) || this.section;
             this.highlight();
         });
-        this.webview.addEventListener('will-navigate', event => {
+        this.registerDomEvent(this.webview, 'will-navigate', event => {
             if (new URL(event.url).origin !== BASE) event.preventDefault();
         });
         this.contentEl.appendChild(this.webview);
@@ -99,6 +99,11 @@ class FinanceSettings extends PluginSettingTab {
             .addText(text => text.setValue(this.plugin.settings.python).onChange(async value => {
                 this.plugin.settings.python = value.trim(); await this.plugin.saveData(this.plugin.settings);
             }));
+        new Setting(this.containerEl).setName('Iniciar el servidor al abrir la bóveda')
+            .setDesc('Ejecuta el servidor Python local. No instala ni descarga dependencias.')
+            .addToggle(toggle => toggle.setValue(this.plugin.settings.autoStart).onChange(async value => {
+                this.plugin.settings.autoStart = value; await this.plugin.saveData(this.plugin.settings);
+            }));
         new Setting(this.containerEl).setName('Abrir Finanzas').setDesc('Aplicación integrada en una pestaña de Obsidian.')
             .addButton(button => button.setButtonText('Abrir').onClick(()=>this.plugin.open('inicio')));
     }
@@ -106,7 +111,7 @@ class FinanceSettings extends PluginSettingTab {
 
 module.exports = class FinancePlugin extends Plugin {
     async onload() {
-        this.settings = Object.assign({python:'py'}, await this.loadData());
+        this.settings = Object.assign({python:process.platform === 'win32' ? 'py' : 'python3', autoStart:false}, await this.loadData());
         this.registerView(TYPE, leaf => new FinanceView(leaf,this));
         this.addRibbonIcon('wallet', 'Abrir Finanzas', () => this.open('inicio'));
         this.addCommand({id:'abrir',name:'Abrir Finanzas',callback:()=>this.open('inicio')});
@@ -114,7 +119,7 @@ module.exports = class FinancePlugin extends Plugin {
         this.registerObsidianProtocolHandler('finanzas', params => this.open(params.section || 'inicio'));
         this.addSettingTab(new FinanceSettings(this.app,this));
         this.app.workspace.onLayoutReady(() => {
-            this.ensureServer().catch(error=>new Notice(error.message));
+            if (this.settings.autoStart) this.ensureServer().catch(error=>new Notice(error.message));
         });
     }
     async open(section) {

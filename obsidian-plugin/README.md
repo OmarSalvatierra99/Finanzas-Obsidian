@@ -21,7 +21,7 @@ Finanzas adopta los colores y la tipografía del tema de Obsidian. El calendario
 
 ## Instalación y datos
 
-Este plugin funciona en Obsidian de escritorio y necesita Python con las dependencias de la aplicación instaladas. La aplicación está en `.finanzas/` dentro de la bóveda. El servicio local se inicia al abrir Obsidian y escucha en `http://127.0.0.1:5028`.
+Este plugin funciona en Obsidian de escritorio y necesita Python con las dependencias de la aplicación instaladas. La aplicación está en `.finanzas/` dentro de la bóveda. Al abrir Finanzas, el complemento puede iniciar el servidor. El inicio con la bóveda es opcional y está desactivado por defecto. El servicio escucha en `http://127.0.0.1:5028`.
 
 Los datos financieros se guardan en `.finanzas/instance/finanzas.sqlite3`; los respaldos están en `.finanzas/backups/`. La documentación técnica de la aplicación está en `.finanzas/README.md`.
 

@@ -1,0 +1,32 @@
+name: Publish Obsidian release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Get the tagged public source
+        shell: bash
+        run: git clone --depth 1 --branch "$GITHUB_REF_NAME" "https://github.com/$GITHUB_REPOSITORY.git" source
+      - name: Validate the release
+        working-directory: source
+        run: |
+          python3 -c 'import json, os; assert json.load(open("manifest.json"))["version"] == os.environ["GITHUB_REF_NAME"]'
+          python3 scripts/build_plugin_release.py
+          node --check main.js
+      - name: Publish installable plugin assets
+        working-directory: source
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" main.js manifest.json styles.css \
+            --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "Finanzas $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md

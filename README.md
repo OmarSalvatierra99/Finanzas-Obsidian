@@ -4,6 +4,21 @@
 
 Aplicación local de finanzas personales construida con Flask y SQLite. Permite organizar deudas, consultar un calendario de pagos, registrar abonos e importar ingresos desde CFDI. Incluye un complemento para Obsidian de escritorio. La interfaz está en español y los importes se expresan en MXN.
 
+## Complemento de Obsidian
+
+El complemento **Finanzas** abre esta aplicación en una pestaña de Obsidian de escritorio. Requiere que instales manualmente la aplicación Python en `.finanzas/` dentro de tu bóveda siguiendo los pasos de abajo. Instalar el complemento desde el catálogo no instala Python, Flask ni la aplicación.
+
+Después configura el ejecutable de Python en los ajustes del complemento. Abre Finanzas con el icono de billetera o los comandos **Abrir Finanzas** y **Abrir deudas**. Al abrir una vista, puede iniciar el servidor local existente; el inicio al abrir la bóveda está desactivado por defecto y se activa en Ajustes. El servidor continúa funcionando al cerrar la vista.
+
+### Dependencias, red y privacidad
+
+- Solo funciona en escritorio: utiliza APIs de Node.js y una vista web de Electron.
+- Se comunica con `http://127.0.0.1:5028` en tu equipo para mostrar Finanzas y consultar su estado.
+- Ejecuta el Python que configures, que puede estar fuera de la bóveda, y el archivo `.finanzas/run.py` dentro de ella. No instala ni actualiza dependencias automáticamente.
+- No incluye telemetría ni envía tus notas o datos financieros a un servicio externo. La integración opcional de Gmail pertenece a la aplicación Python y usa IMAP/SMTP de Gmail cuando la configuras.
+- Requiere el acceso local que configures con el asistente; usar el complemento no exige una cuenta en un servicio de Finanzas.
+- Mantiene las opciones locales del complemento en `data.json`. Las distribuciones y releases omiten ese archivo y la configuración privada del servidor.
+
 ## Funciones
 
 - Calendario mensual con edición de montos y fechas, arrastre de pagos en escritorio y vista por día en móvil.
@@ -99,3 +114,7 @@ git archive --format=zip --output=finanzas-source.zip HEAD
 ```
 
 El servidor de `run.py` escucha solamente en `127.0.0.1`. Un despliegue accesible por internet requiere configurar un servidor WSGI, HTTPS y una clave estable; este repositorio no incluye un despliegue de producción. El estado local puede consultarse en `/api/health`.
+
+## Licencia
+
+[MIT](LICENSE).

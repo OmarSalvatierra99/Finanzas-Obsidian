@@ -4,6 +4,21 @@
 
 A local personal finance application built with Flask and SQLite. Organize debts, browse a payment calendar, record installments, and import income from Mexican CFDI invoices. Includes a desktop Obsidian plugin. The application interface is in Spanish and amounts use MXN.
 
+## Obsidian plugin
+
+The **Finanzas** plugin opens this application in a desktop Obsidian tab. Manually install the Python application in `.finanzas/` inside your vault using the steps below. Installing the catalog plugin does not install Python, Flask, or the backend application.
+
+Configure the Python executable in the plugin settings. Open Finanzas using the wallet icon or the **Abrir Finanzas** and **Abrir deudas** commands. Opening a view may start the existing local server; vault startup is disabled by default and can be enabled in Settings. The server keeps running when you close the view.
+
+### Dependencies, network access, and privacy
+
+- Desktop only: uses Node.js APIs and an Electron webview.
+- Connects to `http://127.0.0.1:5028` on your computer to display Finanzas and check its status.
+- Runs your configured Python executable, which may be outside the vault, and `.finanzas/run.py` inside the vault. Does not automatically install or update dependencies.
+- Has no telemetry and does not send notes or financial data to an external service. The optional Gmail integration belongs to the Python application and uses Gmail IMAP/SMTP when configured.
+- Requires the local login you set up; using the plugin does not require a Finanzas service account.
+- Saves local plugin options in `data.json`. Distributions and releases omit that file and private server configuration.
+
 ## Features
 
 - Monthly calendar with editable amounts and dates, desktop drag and drop, and a mobile daily view.
@@ -99,3 +114,7 @@ git archive --format=zip --output=finanzas-source.zip HEAD
 ```
 
 The server in `run.py` listens only on `127.0.0.1`. An internet-facing deployment requires a WSGI server, HTTPS, and a stable secret key; this repository does not include a production deployment. Local health status is available at `/api/health`.
+
+## License
+
+[MIT](LICENSE).
