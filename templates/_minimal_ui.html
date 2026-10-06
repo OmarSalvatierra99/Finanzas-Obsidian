@@ -1,0 +1,52 @@
+{% from '_debt_form.html' import new_debt_fields with context %}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+{% macro close() %}<button type="button" class="icon-button" data-close-dialog aria-label="Cerrar">×</button>{% endmacro %}
+{% macro context() %}{{ csrf() }}<input type="hidden" name="from_calendar" value="{{ '1' if active_page == 'home' else '0' }}"><input type="hidden" name="month" value="{{ selected_month }}">{% endmacro %}
+{% macro new_dialog() %}
+<dialog id="new-debt" class="entry-dialog minimal-dialog"><header><h2>Agregar deuda</h2>{{ close() }}</header>
+<form method="post" class="stack-form" action="{{ url_for('create_debt') }}">{{ context() }}{{ new_debt_fields() }}<button class="primary-button">Agregar</button></form></dialog>
+{% endmacro %}
+{% macro todo_row(item) %}
+<div class="minimal-row" id="deuda-{{ item.id }}">
+<form action="{{ url_for('complete_todo', debt_id=item.id) }}" method="post" data-complete>{{ context() }}<input name="completed" value="1" type="hidden"><button class="todo-check" aria-label="Completar {{ item.name }}">{{ '✓' if item.completed else '○' }}</button></form>
+<button class="minimal-row-content" type="button" data-open="todo-{{ item.id }}"><span>{{ item.name }}{% if item.due_on %}<small>{{ item.due_on }}</small>{% endif %}</span><b>{{ item.amount }}</b></button>
+</div>
+{% endmacro %}
+{% macro todo_dialog(item) %}
+<dialog id="todo-{{ item.id }}" class="entry-dialog minimal-dialog"><header><h2>Editar pendiente</h2>{{ close() }}</header>
+<form method="post" action="{{ url_for('edit_todo', debt_id=item.id) }}" class="stack-form">{{ context() }}<input type="hidden" name="expected_amount" value="{{ item.amount_cents }}"><input type="hidden" name="expected_on" value="{{ item.due_on }}">
+<label>¿A quién le debes?<input name="name" value="{{ item.name }}" maxlength="100" required></label>
+<label>Monto<input name="amount" type="number" min="0.01" step="0.01" value="{{ '%.2f'|format(item.amount_cents / 100) }}" required></label>
+<label>Fecha <small>Opcional</small><input name="due_on" type="date" value="{{ item.due_on }}"></label><button class="primary-button">Guardar</button></form>
+<form method="post" action="{{ url_for('delete_debt', debt_id=item.id) }}" data-confirm="¿Eliminar este pendiente?">{{ csrf() }}<button class="secondary-button danger-button">Eliminar</button></form></dialog>
+{% endmacro %}
+{% macro once_row(p) %}
+<div class="minimal-row"><form method="post" data-complete action="{{ url_for('complete_reminder', commitment_id=p.source_id) }}">{{ context() }}<input name="occurrence_on" type="hidden" value="{{ p.source_occurrence_on }}"><input name="completed" type="hidden" value="1"><button class="todo-check" aria-label="Completar {{ p.label }}">{{ '✓' if p.completed else '○' }}</button></form><button type="button" class="minimal-row-content" data-open="payment-{{ p.key }}"><span>{{ p.label }}<small>{{ p.date }}</small></span><b>{{ p.amount }}</b></button></div>
+{% endmacro %}
+{% macro payment_row(p, card=false) %}
+<div class="{{ 'minimal-calendar-payment' if card else 'minimal-row' }}" data-payment-card>
+<button type="button" class="minimal-row-content" data-open="payment-{{ p.key }}"><span>{{ p.label }}{% if not card %}<small>{{ p.date }}</small>{% endif %}</span><b>{{ p.amount }}</b></button>
+{% if card %}<button type="button" class="payment-drag-handle" aria-label="Mover {{ p.label }}">⠿</button>
+<form class="calendar-move-form" hidden method="post" action="{{ url_for('move_debt_installment', debt_id=p.source_id, installment_id=p.id) if p.kind == 'installment' else url_for('edit_reminder_occurrence', commitment_id=p.source_id) if p.kind == 'recurring' else url_for('edit_todo', debt_id=p.source_id) }}">{{ context() }}
+<input name="source_occurrence_on" value="{{ p.source_occurrence_on }}"><input name="expected_on" value="{{ p.date }}"><input name="expected_amount" value="{{ p.amount_cents }}">
+{% if p.kind == 'single' %}<input name="name" value="{{ p.name }}"><input name="amount" value="{{ '%.2f'|format(p.amount_cents/100) }}"><input name="due_on" value="{{ p.date }}">{% endif %}{% if p.kind == 'recurring' %}<input name="occurrence_on" value="{{ p.source_occurrence_on }}"><input name="amount" value="{{ '%.2f'|format(p.amount_cents/100) }}">{% endif %}</form>{% endif %}
+</div>
+{% endmacro %}
+{% macro payment_dialog(p) %}
+<dialog id="payment-{{ p.key }}" class="entry-dialog minimal-dialog"><header><h2>{{ p.label }}</h2>{{ close() }}</header>
+{% if p.kind == 'single' %}
+<form method="post" class="stack-form" action="{{ url_for('edit_todo', debt_id=p.source_id) }}">{{ context() }}<input name="expected_amount" type="hidden" value="{{ p.amount_cents }}"><input name="expected_on" type="hidden" value="{{ p.date }}">
+<label>¿A quién le debes?<input name="name" value="{{ p.name }}" maxlength="100" required></label>
+{% else %}
+<form method="post" class="stack-form" action="{{ url_for('edit_reminder_occurrence', commitment_id=p.source_id) if p.kind == 'recurring' else url_for('edit_calendar_installment', installment_id=p.id) }}">{{ context() }}
+<input name="occurrence_on" type="hidden" value="{{ p.source_occurrence_on }}"><input name="expected_on" type="hidden" value="{{ p.date }}"><input name="expected_amount" type="hidden" value="{{ p.amount_cents }}">
+{% if p.kind == 'recurring' and p.frequency == 'once' %}<label>¿A quién le debes?<input name="title" value="{{ p.label }}" maxlength="120" required></label>{% endif %}
+{% endif %}
+<label>Monto<input name="amount" type="number" min="0.01" step="0.01" value="{{ '%.2f'|format(p.amount_cents/100) }}" required></label>
+<label>Fecha<input name="{{ 'due_on' if p.kind == 'single' else 'target_on' }}" type="date" value="{{ p.date }}" {{ 'required' if p.kind != 'single' }}></label><button class="primary-button">Guardar</button></form>
+{% if p.kind != 'installment' %}
+<form method="post" data-complete action="{{ url_for('complete_todo', debt_id=p.source_id) if p.kind == 'single' else url_for('complete_reminder', commitment_id=p.source_id) }}">{{ context() }}<input name="occurrence_on" type="hidden" value="{{ p.source_occurrence_on }}"><input name="completed" type="hidden" value="1"><button class="secondary-button">Marcar como listo</button></form>
+{% if p.kind == 'recurring' and p.frequency != 'once' %}<a href="{{ url_for('debts_page') }}#deuda-recurrente-{{ p.source_id }}">Editar repetición</a>{% endif %}
+{% if p.kind == 'recurring' and p.frequency == 'once' %}<form method="post" action="{{ url_for('delete_commitment', commitment_id=p.source_id) }}" data-confirm="¿Eliminar este pendiente?">{{ csrf() }}<button class="secondary-button danger-button">Eliminar</button></form>{% endif %}
+{% else %}<a href="{{ url_for('debts_page') }}#deuda-{{ p.source_id }}">Registrar abono y ver historial</a>{% endif %}</dialog>
+{% endmacro %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Resumen · {{ project_name }}{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <div>
+        <h1>Resumen</h1>
+        <p>Tu situación financiera del periodo seleccionado.</p>
+    </div>
+    <form class="month-filter" method="get">
+        <label class="sr-only" for="month">Periodo del resumen</label>
+        <input id="month" name="month" type="month" value="{{ selected_month }}" required>
+        <button class="secondary-button" type="submit">Aplicar</button>
+    </form>
+</header>
+
+<section class="summary-strip" aria-label="Resumen financiero">
+    <div>
+        <span>Saldo total</span>
+        <strong class="{{ 'negative' if summary.balance_cents < 0 else '' }}">{{ summary.balance }}</strong>
+    </div>
+    <div>
+        <span>Ingresos disponibles</span>
+        <strong class="positive">{{ summary.income }}</strong>
+    </div>
+    <div>
+        <span>Gastos</span>
+        <strong>{{ summary.expense }}</strong>
+    </div>
+    <div>
+        <span>Resultado del mes</span>
+        <strong class="{{ 'negative' if summary.month_result_cents < 0 else 'positive' }}">{{ summary.month_result }}</strong>
+    </div>
+    <div>
+        <span>Deuda pendiente</span>
+        <strong>{{ summary.debt }}</strong>
+    </div>
+</section>
+
+<section class="forecast-strip" aria-labelledby="forecast-title"><div><p class="eyebrow">Pronóstico del mes actual</p><h2 id="forecast-title">De saldo real a dinero libre</h2></div><dl><div><dt>Ingresos disponibles</dt><dd>{{ snapshot.income }}</dd></div><div><dt>Gastos realizados</dt><dd>{{ snapshot.expense }}</dd></div><div><dt>Dinero comprometido</dt><dd>{{ snapshot.committed }}</dd></div><div><dt>Dinero libre</dt><dd class="{{ 'negative' if snapshot.free_cents < 0 else 'positive' }}">{{ snapshot.free }}</dd></div></dl></section>
+
+<section class="expense-breakdown" aria-labelledby="expense-breakdown-title">
+    <div class="section-heading">
+        <div>
+            <h2 id="expense-breakdown-title">Gastos por categoría</h2>
+            <p>Distribución de {{ selected_month }}.</p>
+        </div>
+    </div>
+    {% if expense_chart.segments %}
+    <figure class="expense-chart">
+        <div class="expense-pie" style="--expense-chart: conic-gradient({{ expense_chart.gradient }})" role="img" aria-label="Gráfica de gastos por categoría; total {{ expense_chart.total }}"></div>
+        <figcaption>
+            <ul class="chart-legend" aria-label="Detalle de gastos por categoría">
+                {% for segment in expense_chart.segments %}
+                <li>
+                    <span class="chart-swatch chart-color-{{ segment.color }}" aria-hidden="true"></span>
+                    <span>{{ segment.category }}</span>
+                    <strong>{{ segment.amount }}</strong>
+                    <span>{{ segment.percent }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </figcaption>
+    </figure>
+    {% else %}
+    <div class="empty-state chart-empty" role="status">
+        <strong>No hay gastos en este mes.</strong>
+        <p>Registra un gasto para ver su distribución por categoría.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Gastos · {{ project_name }}{% endblock %}
+{% block content %}
+<header class="page-header"><div><h1>Gastos imprevistos</h1><p>Registra aquí solo lo que no estaba contemplado en tu calendario.</p></div></header>
+
+<section class="summary-strip" aria-label="Resumen de gastos">
+    <div><span>Imprevistos registrados</span><strong>{{ total }}</strong></div>
+    <div><span>{{ selected_month_label }}</span><strong>{{ month_total }}</strong></div>
+    <div><span>Movimientos del mes</span><strong>{{ movement_count }}</strong></div>
+</section>
+
+<section class="quick-section expense-entry" aria-labelledby="new-expense-title">
+    <div class="section-heading compact-heading"><div><h2 id="new-expense-title">Registrar imprevisto</h2><p>Las deudas se pagan directamente desde el calendario de Inicio.</p></div></div>
+    <form id="expense-form" class="composer-form standalone-form expense-form" method="post" action="{{ url_for('create_movement') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="kind" value="expense">
+        <label class="wide-field">Categoría<select id="expense-category" name="category" required><option value="">Selecciona</option>{% for group in expense_groups %}{% for item in group['items'] %}<option value="{{ item.value }}"{% if item.requires_confirmation %} data-warning="impulse"{% endif %}>{{ item.value }}</option>{% endfor %}{% endfor %}</select></label>
+        <label id="other-expense-field" class="wide-field" hidden>Concepto<input id="other-expense-concept" name="description" maxlength="160" placeholder="¿En qué gastaste?"></label>
+        <label>Monto<input id="expense-amount" name="amount" type="number" min="0.01" max="999999999.99" step="0.01" inputmode="decimal" placeholder="0.00" required></label>
+        <label>Fecha<input name="occurred_on" type="date" value="{{ today }}" max="{{ today }}" required></label>
+        <button class="primary-button" type="submit">Agregar imprevisto</button>
+    </form>
+</section>
+
+<dialog id="impulse-warning-dialog" class="entry-dialog debt-warning-dialog" aria-labelledby="impulse-warning-title" aria-describedby="impulse-warning-copy">
+    <div class="debt-warning-body">
+        <span class="debt-warning-mark" aria-hidden="true">!</span>
+        <p class="debt-warning-kicker">Pausa antes de gastar</p>
+        <h2 id="impulse-warning-title">¿Esto sí vale la pena?</h2>
+        <p id="impulse-warning-copy">Vas a registrar <strong id="impulse-warning-amount"></strong> como un gasto impulsivo. Respira y piensa si lo necesitas o solo buscas alivio por un momento.</p>
+        <p class="debt-warning-mantra">“No compro alivio de cinco minutos con dinero que necesito.”</p>
+    </div>
+    <div class="dialog-actions debt-warning-actions">
+        <button class="primary-button" type="button" autofocus onclick="this.closest('dialog').close()">No, mejor me espero</button>
+        <button id="confirm-impulse-expense" class="secondary-button" type="button">Sí, registrar gasto</button>
+    </div>
+</dialog>
+
+<details class="collection-section expense-history"{% if history_open %} open{% endif %}>
+    <summary class="collection-summary"><span><strong>Historial de imprevistos</strong><small>{{ selected_month_label }} · {{ movement_count }} movimientos</small></span><span class="collection-total"><small>Total del mes</small><strong>{{ month_total }}</strong></span></summary>
+    <div class="expense-history-body">
+        <form class="month-filter" method="get"><label for="expense-history-month">Mes</label><input id="expense-history-month" name="month" type="month" value="{{ selected_month }}" required><button class="secondary-button" type="submit">Ver gastos</button></form>
+        <div class="database-table"><div class="table-wrap"><table class="expense-table"><thead><tr><th>Fecha</th><th>Categoría</th><th class="amount-cell">Monto</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody>{% for movement in movements %}<tr><td class="date-cell">{{ movement.occurred_on }}</td><td>{{ movement.category }}{% if movement.category == 'Otros' and movement.description != movement.category %}<small class="expense-concept">{{ movement.description }}</small>{% endif %}</td><td class="amount-cell expense">{{ movement.signed_amount }}</td><td><form method="post" action="{{ url_for('delete_movement', movement_id=movement.id) }}" onsubmit="return confirm('¿Eliminar este gasto?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="kind" value="expense"><input type="hidden" name="month" value="{{ selected_month }}"><button class="row-action" type="submit" aria-label="Eliminar gasto de {{ movement.category }}">Eliminar</button></form></td></tr>{% else %}<tr><td colspan="4" class="empty-cell"><strong>No hay gastos en {{ selected_month_label }}.</strong><span>Elige otro mes o registra el primero arriba.</span></td></tr>{% endfor %}</tbody></table></div></div>
+    </div>
+</details>
+<script>
+const form=document.getElementById('expense-form'),category=document.getElementById('expense-category'),amount=document.getElementById('expense-amount'),warning=document.getElementById('impulse-warning-dialog'),otherField=document.getElementById('other-expense-field'),concept=document.getElementById('other-expense-concept');
+let impulseConfirmed=false;
+const syncConcept=()=>{const required=category.value==='Otros';otherField.hidden=!required;concept.required=required;concept.disabled=!required;if(!required)concept.value=''};
+category.addEventListener('change',syncConcept);syncConcept();
+form.addEventListener('submit',event=>{if(category.selectedOptions[0]?.dataset.warning!=='impulse'||impulseConfirmed)return;event.preventDefault();document.getElementById('impulse-warning-amount').textContent=new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(amount.value));warning.showModal()});
+document.getElementById('confirm-impulse-expense').addEventListener('click',()=>{impulseConfirmed=true;warning.close();form.requestSubmit()});
+</script>
+{% endblock %}

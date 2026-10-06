@@ -1,0 +1,39 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+catalogos/
+*.pem
+*.key
+credentials*.json
+token*.json
+obsidian-plugin/data.json
+
+# Private financial data and generated files
+instance/
+backups/
+logs/
+uploads/
+.cache/
+*.sqlite*
+*.db
+*.xml
+*.csv
+*.zip
+*.log
+
+# Python and development environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+build/
+dist/
+*.egg-info/

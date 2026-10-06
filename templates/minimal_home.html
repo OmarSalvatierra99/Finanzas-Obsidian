@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% from '_minimal_ui.html' import new_dialog, payment_row, payment_dialog, close with context %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/minimal.css', v=asset_version) }}">{% endblock %}
+{% block title %}Inicio · {{ project_name }}{% endblock %}
+{% block content %}
+<div class="minimal-page">
+<header class="minimal-heading"><h1>Calendario</h1><button type="button" class="primary-button" data-open="new-debt">＋ Agregar</button></header>
+<section class="minimal-stats" aria-label="Pagos programados frente a Nómina">{% for stat in stats %}<div class="{{ 'over-income' if stat.exceeded }}"><small>{{ stat.label }}</small><strong>{{ stat.amount }}</strong><span>{{ 'Excede por ' ~ stat.excess if stat.exceeded else ('Ingreso ' ~ stat.limit if stat.limit != '$0.00' else 'Ingreso sin configurar') }}</span></div>{% endfor %}</section>
+<nav class="minimal-month-nav" aria-label="Mes del calendario"><a class="secondary-button" href="?month={{ previous_month }}" aria-label="Mes anterior">‹</a><h2>{{ month_label }}</h2><a class="secondary-button" href="?month={{ next_month }}" aria-label="Mes siguiente">›</a><a class="secondary-button" href="?month={{ current_month }}">Hoy</a></nav>
+<div class="month-calendar-wrap minimal-calendar-wrap"><div class="month-calendar minimal-calendar" role="grid" aria-label="{{ month_label }}">
+{% for day in ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'] %}<div class="month-weekday" role="columnheader">{{ day }}</div>{% endfor %}
+{% for week in weeks %}{% for day in week %}<article class="month-day{{ ' outside-month' if not day.in_month }}{{ ' is-today' if day.today }}" role="gridcell" data-drop-date="{{ day.date }}">
+<header><button type="button" class="minimal-day-button" data-open="day-{{ day.date }}" aria-label="{{ day.date }}, {{ day.payments|length }} pendientes">{{ day.number }}</button></header>
+<div class="day-payments">{% for p in day.payments %}{{ payment_row(p, true) }}{% endfor %}</div>{% if day.payments %}<span class="mobile-day-count">{{ day.payments|length }}</span>{% endif %}
+</article>{% endfor %}{% endfor %}</div></div>
+{{ new_dialog() }}
+{% for p in payments %}{{ payment_dialog(p) }}{% endfor %}
+{% for week in weeks %}{% for day in week %}<dialog id="day-{{ day.date }}" class="entry-dialog minimal-dialog"><header><h2>{{ day.date }}</h2>{{ close() }}</header>{% for p in day.payments %}{{ payment_row(p) }}{% else %}<p>Sin pendientes.</p>{% endfor %}<button class="secondary-button" type="button" data-new-date="{{ day.date }}">＋ Agregar aquí</button></dialog>{% endfor %}{% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/minimal.js') }}?v={{ asset_version }}" defer></script><script src="{{ url_for('static', filename='js/calendar.js') }}?v={{ asset_version }}" defer></script>{% endblock %}

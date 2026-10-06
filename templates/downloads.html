@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Descargas · {{ project_name }}{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <div>
+        <h1>Descargas</h1>
+        <p>Descarga una copia para tu computadora o instala el acceso en Android.</p>
+    </div>
+</header>
+
+<section class="panel"><h2>Respaldo local</h2><p>Respalda tu base SQLite y tus archivos privados fuera del repositorio. Las distribuciones del código no incluyen datos ni credenciales.</p></section>
+
+<section class="android-download" aria-labelledby="android-title">
+    <div class="android-app-heading">
+        <img src="{{ url_for('static', filename='pwa/icon-192.png') }}" width="72" height="72" alt="">
+        <div>
+            <p class="eyebrow">Android</p>
+            <h2 id="android-title">Finanzas</h2>
+            <p>Acceso directo a tu servidor privado.</p>
+        </div>
+    </div>
+
+    <dl class="download-facts">
+        <div><dt>Sincronización</dt><dd>En tiempo real</dd></div>
+        <div><dt>Acceso</dt><dd>Login obligatorio</dd></div>
+        <div><dt>Conexión</dt><dd>HTTPS</dd></div>
+    </dl>
+
+    <div class="download-action">
+        <button id="install-android-app" class="primary-button" type="button" hidden>Instalar en Android</button>
+        <p id="install-status" role="status">Abre esta página en Chrome para instalar la aplicación.</p>
+    </div>
+</section>
+
+<section class="install-help" aria-labelledby="install-help-title">
+    <h2 id="install-help-title">Si no aparece el botón</h2>
+    <ol>
+        <li>Abre esta página en Chrome para Android.</li>
+        <li>Toca el menú de tres puntos.</li>
+        <li>Elige <strong>Instalar aplicación</strong> o <strong>Agregar a pantalla principal</strong>.</li>
+    </ol>
+    <p class="privacy-note"><strong>Tus datos no se descargan al teléfono.</strong> La aplicación necesita internet y vuelve a pedir el login cuando la sesión vence.</p>
+</section>
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='js/install.js', v=asset_version) }}" defer></script>{% endblock %}

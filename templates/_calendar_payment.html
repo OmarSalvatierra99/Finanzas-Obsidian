@@ -1,0 +1,32 @@
+{% from '_debt_actions.html' import context_fields, edit_fields, adjust_fields, move_fields with context %}
+{% macro payment_card(payment) %}
+{% if payment.members is defined %}
+<details class="calendar-payment debt payment-group"><summary><strong>{{ payment.label }}</strong><small>{{ payment.display_amount }} · Ver pagos</small></summary><div class="payment-group-members">{% for member in payment.members %}{{ payment_card(member) }}{% endfor %}</div></details>
+{% else %}
+<article class="calendar-payment {{ payment.kind }} {{ payment.state }}" data-payment-card>
+<div class="payment-heading"><strong>{{ payment.label }}</strong>{% if payment.remaining_cents %}<button type="button" class="payment-drag-handle" aria-label="Arrastrar pago de {{ payment.label }}; también puedes usar Mover fecha" title="Arrastrar a otro día">⠿</button>{% endif %}</div>
+<small>{{ payment.display_amount }} · {{ payment.state_label }}</small>
+{% if payment.remaining_cents %}
+<details class="payment-options"><summary>Administrar</summary>
+<details class="payment-details"><summary>Abonar</summary>
+<form class="stack-form inline-edit" method="post" data-single-submit action="{{ url_for('pay_debt', debt_id=payment.source_id) if payment.kind == 'debt' else url_for('pay_commitment', commitment_id=payment.source_id) }}">
+{{ context_fields() }}
+{% if payment.kind == 'debt' %}<input type="hidden" name="installment_ids" value="{{ payment.item_id }}">{% else %}<input type="hidden" name="occurrence_on" value="{{ payment.occurrence_on }}">{% endif %}
+<label>Monto<input type="number" name="amount" min="0.01" max="{{ '%.2f'|format(payment.balance_cents / 100) if payment.kind == 'debt' else '999999999.99' }}" step="0.01" value="{{ '%.2f'|format(payment.remaining_cents / 100) }}" required></label>
+<label>Fecha del abono<input name="occurred_on" type="date" value="{{ today }}" max="{{ today }}" required></label>
+{% if payment.kind == 'debt' and payment.schedule_type != 'single' %}<label class="check-line"><input type="checkbox" name="capital_payment" value="1"> Abono a capital</label>{% endif %}
+<button class="secondary-button" type="submit">Guardar abono</button>
+</form></details>
+<details class="payment-details"><summary>Mover fecha</summary>{{ move_fields(payment) }}</details>
+{% if payment.kind == 'debt' %}
+{{ edit_fields(payment.source_id, payment.debt_name, payment.creditor, payment.notes, payment.schedule_type == 'single') }}
+{{ adjust_fields(payment.source_id, payment.balance_cents) }}
+<a class="row-action" href="{{ url_for('debts_page') }}#deuda-{{ payment.source_id }}">Historial y cuotas</a>
+{% else %}
+<details class="payment-details"><summary>Editar</summary><form class="stack-form inline-edit" method="post" action="{{ url_for('set_commitment_exception', commitment_id=payment.source_id) }}">{{ context_fields() }}<input type="hidden" name="occurrence_on" value="{{ payment.source_occurrence_on }}"><label>Monto de este pago<input name="amount" type="number" min="0.01" step="0.01" value="{{ '%.2f'|format(payment.amount_cents / 100) }}" required></label><button class="secondary-button" type="submit">Guardar monto</button></form><a href="{{ url_for('debts_page') }}#deuda-recurrente-{{ payment.source_id }}">Editar recurrencia</a></details>
+{% endif %}
+</details>
+{% else %}<span class="calendar-paid-mark">✓ Pagado</span>{% endif %}
+</article>
+{% endif %}
+{% endmacro %}

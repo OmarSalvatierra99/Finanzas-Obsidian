@@ -1,0 +1,1 @@
+Aplicación de finanzas personales con Flask y SQLite para organizar deudas, registrar abonos y consultar un calendario de pagos. Incluye recordatorios recurrentes, totales pendientes, importación de ingresos mediante CFDI de Gmail e integración con Obsidian. Interfaz adaptable, acceso con contraseña y configuración privada separada del código base.

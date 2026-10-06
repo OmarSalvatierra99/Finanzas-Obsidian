@@ -1,0 +1,40 @@
+{% macro recurring_debt_fields() %}
+<input type="hidden" name="category" value="Deudas">
+<label>Nombre de la deuda<input name="title" maxlength="120" placeholder="Ej. Internet, tanda o préstamo" required></label>
+<label>Monto habitual<input name="amount" type="number" min="0.01" max="999999999.99" step="0.01" inputmode="decimal" placeholder="0.00" required></label>
+<label>Frecuencia<select name="frequency" required>{% for value, label in commitment_frequencies.items() if value != 'once' %}<option value="{{ value }}"{% if value == 'monthly' %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+<label>Primera fecha de pago<input name="starts_on" type="date" value="{{ today }}" required><small>El calendario repetirá este día según la frecuencia.</small></label>
+{% endmacro %}
+
+{% macro one_time_debt_fields() %}
+<input type="hidden" name="creditor_type" value="person">
+<input type="hidden" name="priority" value="normal">
+<input type="hidden" name="reminder_days" value="1">
+<input type="hidden" name="schedule_type" value="single">
+<label>¿A quién le debes?<input name="name" maxlength="100" required></label>
+<label>Monto total<input name="amount" type="number" min="0.01" max="999999999.99" step="0.01" inputmode="decimal" required></label>
+<label>Fecha <small>Opcional</small><input name="due_on" type="date"></label>
+{% endmacro %}
+
+{% macro installment_debt_fields() %}
+<input type="hidden" name="creditor_type" value="person"><input type="hidden" name="priority" value="normal"><input type="hidden" name="reminder_days" value="1">
+<label>¿A quién le debes?<input name="creditor" maxlength="100" required></label>
+<label>Deuda total<input name="amount" type="number" min="0.01" max="999999999.99" step="0.01" inputmode="decimal" required></label>
+<label>Abono habitual<input name="min_payment" type="number" min="0.01" step="0.01" inputmode="decimal" required></label>
+<label>Frecuencia<select name="schedule_type"><option value="fortnightly">Quincenal</option><option value="monthly">Mensual</option><option value="weekly">Semanal</option></select></label>
+<label>Primera fecha<input name="due_on" type="date" value="{{ today }}" required></label>
+{% endmacro %}
+
+{% macro new_debt_fields() %}
+<label class="notes-field">Tipo de deuda
+    <select name="debt_type" required autofocus onchange="this.form.querySelectorAll('[data-debt-type]').forEach(group=>{const active=group.dataset.debtType===this.value;group.hidden=!active;group.disabled=!active})">
+        <option value="" selected disabled>Selecciona...</option>
+        <option value="recurring">Recurrente</option>
+        <option value="single">Un solo pago</option>
+        <option value="installments">Con abonos</option>
+    </select>
+</label>
+<fieldset class="debt-type-fields" data-debt-type="recurring" disabled hidden><legend class="sr-only">Deuda recurrente</legend>{{ recurring_debt_fields() }}</fieldset>
+<fieldset class="debt-type-fields" data-debt-type="single" disabled hidden><legend class="sr-only">Deuda de un solo pago</legend>{{ one_time_debt_fields() }}</fieldset>
+<fieldset class="debt-type-fields" data-debt-type="installments" disabled hidden><legend class="sr-only">Deuda con abonos</legend>{{ installment_debt_fields() }}</fieldset>
+{% endmacro %}

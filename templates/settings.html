@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración · {{ project_name }}{% endblock %}
+
+{% block content %}
+<header class="page-header">
+    <div>
+        <h1>Configuración</h1>
+        <p>Administra la cuenta compartida por tus automatizaciones.</p>
+    </div>
+</header>
+
+<details class="settings-section">
+    <summary class="settings-heading">
+        <div>
+            <h2 id="gmail-title">Cuenta de Gmail</h2>
+            <p>La clave se cifra antes de guardarse y nunca vuelve a mostrarse.</p>
+        </div>
+        <span class="status-label {{ 'active' if gmail_configured else 'soon' }}">
+            {{ "Configurado" if gmail_configured else "Falta la clave" }}
+        </span>
+    </summary>
+
+    <form class="settings-form" method="post" action="{{ url_for('save_gmail_settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>
+            Cuenta de Gmail
+            <input name="email" type="email" maxlength="254" value="{{ gmail_email }}" autocomplete="email" readonly required>
+            <small>Se usa para enviar recordatorios y leer los XML recibidos.</small>
+        </label>
+        <label>
+            Clave de aplicación
+            <input name="app_password" type="password" minlength="16" maxlength="19" autocomplete="new-password" placeholder="{{ 'Configurada; déjala vacía para conservarla' if gmail_configured else '16 caracteres' }}">
+            <small>No escribas tu contraseña normal. Crea una <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener noreferrer">clave de aplicación de Google</a>.</small>
+        </label>
+        <label class="check-setting">
+            <input name="reminders_enabled" type="checkbox" value="1" {% if reminders_enabled %}checked{% endif %}>
+            <span><strong>Enviar recordatorios</strong><small>El servidor revisará diariamente las deudas próximas y vencidas.</small></span>
+        </label>
+        <label class="check-setting">
+            <input name="xml_imports_enabled" type="checkbox" value="1" {% if xml_imports_enabled %}checked{% endif %}>
+            <span><strong>Importar XML automáticamente</strong><small>El servidor buscará una vez al día CFDI enviados por el remitente configurado en XML_SENDER_EMAIL.</small></span>
+        </label>
+        <div class="settings-actions">
+            <button class="secondary-button" type="submit" name="action" value="test">Guardar y enviar prueba</button>
+            <button class="primary-button" type="submit" name="action" value="save">Guardar cambios</button>
+        </div>
+    </form>
+</details>
+{% endblock %}

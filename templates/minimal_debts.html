@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% from '_minimal_ui.html' import csrf, close, new_dialog, todo_row, todo_dialog, payment_dialog, once_row with context %}
+{% from '_debt_actions.html' import debt_progress with context %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/minimal.css', v=asset_version) }}">{% endblock %}
+{% block title %}Deudas · {{ project_name }}{% endblock %}
+{% block content %}<div class="minimal-page">
+<header class="minimal-heading"><h1>Deudas</h1><button class="primary-button" type="button" data-open="new-debt">＋ Agregar</button></header>
+<section class="minimal-collection"><h2>Una sola vez <small>{{ (singles|length) + (once_pending|length) }}</small></h2>{% for item in singles %}{{ todo_row(item) }}{% endfor %}{% for p in once_pending %}{{ once_row(p) }}{% endfor %}{% if not singles and not once_pending %}<p class="minimal-empty">Sin pendientes.</p>{% endif %}
+<p class="minimal-collection-total"><span>Total pendiente</span><strong>{{ single_total }}</strong></p></section>
+<section class="minimal-collection"><h2>Recurrentes <small>{{ recurring_debts|length }}</small></h2>
+{% for item in recurring_debts %}<div id="deuda-recurrente-{{ item.id }}" class="minimal-row"><button class="minimal-row-content" type="button" data-open="recurring-{{ item.id }}"><span>{{ item.title }}<small>{{ item.schedule_label }}{{ ' · Pausada' if not item.is_active }}</small></span><b>{{ item.amount }}</b></button></div>{% else %}<p class="minimal-empty">Sin recordatorios.</p>{% endfor %}</section>
+<section class="minimal-collection"><h2>Con abonos <small>{{ installment_debts|length }}</small></h2>
+{% for debt in installment_debts %}<div class="minimal-installment" id="deuda-{{ debt.id }}"><button class="minimal-row-content" type="button" data-open="installment-{{ debt.id }}"><span>{{ debt.creditor }}{% if debt.name != debt.creditor %}<small>{{ debt.name }}</small>{% endif %}</span><b>{{ debt.balance }}</b></button>{{ debt_progress(debt) }}</div>{% else %}<p class="minimal-empty">Sin deudas con abonos.</p>{% endfor %}
+{% if settled_installments %}<details class="minimal-completed"><summary>Liquidadas · {{ settled_installments|length }}</summary>{% for debt in settled_installments %}<button class="minimal-row-content" type="button" data-open="installment-{{ debt.id }}"><span>{{ debt.creditor }}</span><b>✓</b></button>{% endfor %}</details>{% endif %}</section>
+{{ new_dialog() }}
+{% for item in singles %}{{ todo_dialog(item) }}{% endfor %}
+{% for item in recurring_debts %}
+<dialog id="recurring-{{ item.id }}" class="entry-dialog minimal-dialog"><header><h2>Editar repetición</h2>{{ close() }}</header>
+<form class="stack-form" action="{{ url_for('edit_commitment', commitment_id=item.id) }}" method="post">{{ csrf() }}<input type="hidden" name="pair_id" value="{{ item.pair_id }}"><input type="hidden" name="category" value="{{ item.category }}"><input type="hidden" name="notes" value="{{ item.notes }}">
+<label>Nombre<input name="title" value="{{ item.title }}" maxlength="120" required></label><label>Monto<input name="amount" type="number" min="0.01" step="0.01" value="{{ '%.2f'|format(item.amount_cents/100) }}" required></label>
+<input name="calendar_edit" value="1" type="hidden">
+<label>Frecuencia<select name="frequency" data-simple-frequency>{% for value, label in commitment_frequencies.items() if value != 'once' %}<option value="{{ value }}" {{ 'selected' if value == ('fortnightly' if item.pair_id else item.frequency) }}>{{ label }}</option>{% endfor %}</select></label>
+<label>Primera fecha<input name="starts_on" type="date" value="{{ item.first_on }}" required></label>
+<small data-fortnight-note {{ 'hidden' if not item.pair_id }}>Los días 15 y 30; en febrero, el último día.</small>
+<button class="primary-button">Guardar</button></form>
+<div class="minimal-secondary-actions"><form method="post" action="{{ url_for('set_commitment_state', commitment_id=item.id) }}">{{ csrf() }}<input type="hidden" name="pair_id" value="{{ item.pair_id }}"><input type="hidden" name="active" value="{{ '0' if item.is_active else '1' }}"><input type="hidden" name="starts_on" value="{{ today }}"><button class="secondary-button">{{ 'Pausar' if item.is_active else 'Retomar' }}</button></form>
+<form method="post" action="{{ url_for('delete_commitment', commitment_id=item.id) }}" data-confirm="¿Eliminar esta repetición?">{{ csrf() }}<input type="hidden" name="pair_id" value="{{ item.pair_id }}"><button class="secondary-button danger-button">Eliminar</button></form></div></dialog>
+{% endfor %}
+{% for debt in installment_debts + settled_installments %}
+<dialog id="installment-{{ debt.id }}" class="entry-dialog minimal-dialog"><header><h2>{{ debt.creditor }}</h2>{{ close() }}</header><strong class="minimal-balance">{{ debt.balance }} pendiente</strong>{{ debt_progress(debt) }}
+{% if debt.balance_cents %}<form method="post" class="stack-form" data-single-submit action="{{ url_for('pay_debt', debt_id=debt.id) }}">{{ csrf() }}<input name="idempotency_token" type="hidden" value="{{ payment_tokens[debt.id] }}"><h3>Registrar abono</h3><label>Monto<input name="amount" type="number" min="0.01" max="{{ '%.2f'|format(debt.balance_cents/100) }}" step="0.01" value="{{ '%.2f'|format(debt.suggested_payment_cents/100) }}" required></label><label>Fecha<input name="occurred_on" type="date" max="{{ today }}" value="{{ today }}" required></label><button class="primary-button">Registrar abono</button></form>{% endif %}
+<h3>Historial de abonos</h3><ol class="minimal-history">{% for payment in debt.payments %}<li><time>{{ payment.occurred_on }}</time><b>{{ payment.amount }}</b></li>{% else %}<li>Sin abonos.</li>{% endfor %}</ol>
+<button class="secondary-button" type="button" data-open="installment-edit-{{ debt.id }}">Editar deuda y fechas</button></dialog>
+<dialog id="installment-edit-{{ debt.id }}" class="entry-dialog minimal-dialog"><header><h2>Editar deuda</h2>{{ close() }}</header><form class="stack-form" method="post" action="{{ url_for('edit_debt', debt_id=debt.id) }}">{{ csrf() }}<input name="metadata_only" value="1" type="hidden"><input name="name" value="{{ debt.name }}" type="hidden"><input name="notes" value="{{ debt.notes }}" type="hidden"><label>¿A quién le debes?<input name="creditor" maxlength="100" value="{{ debt.creditor }}" required></label><button class="primary-button">Guardar</button></form>
+<h3>Fechas pendientes</h3>{% for p in all_payments if p.kind == 'installment' and p.source_id == debt.id and not p.completed %}<button type="button" class="minimal-row-content" data-open="payment-{{ p.key }}"><span>{{ p.date }}</span><b>{{ p.amount }}</b></button>{% else %}<p>Sin fechas pendientes.</p>{% endfor %}
+<form method="post" action="{{ url_for('delete_debt', debt_id=debt.id) }}" data-confirm="¿Eliminar esta deuda? Se conservarán los pagos anteriores.">{{ csrf() }}<button class="secondary-button danger-button">Eliminar</button></form></dialog>
+{% endfor %}
+{% for p in all_payments if (p.kind == 'installment' and not p.completed) or (p.kind == 'recurring' and p.frequency == 'once') %}{{ payment_dialog(p) }}{% endfor %}
+</div>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/minimal.js') }}?v={{ asset_version }}" defer></script>{% endblock %}

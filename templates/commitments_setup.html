@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Deudas iniciales · {{ project_name }}{% endblock %}
+{% block content %}
+<header class="page-header"><div><h1>Deudas iniciales</h1><p>Confirma montos y fechas. Los pagos comenzarán con el historial vacío.</p></div></header>
+<form class="preset-form" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><fieldset><legend>Presets editables</legend>
+    {% for slug, title, amount, frequency, category in presets %}<div class="preset-row"><label class="check-line"><input name="enable_{{ slug }}" type="checkbox" value="1"> <strong>{{ title }}</strong></label><label>Monto <input name="amount_{{ slug }}" type="number" min="0.01" step="0.01" value="{{ '%.2f'|format(amount / 100) }}"></label>{% if frequency == 'monthly' %}<label>Día del mes <input name="day_{{ slug }}" type="number" min="1" max="31" value="{{ '' }}" placeholder="Confirma 1–31"></label>{% else %}<span>{{ 'Lunes a viernes' if frequency == 'weekdays' else ('Cada sábado' if frequency == 'weekly' else 'Días 15 y 30') }}</span>{% endif %}</div>{% endfor %}
+</fieldset><button class="primary-button" type="submit">Agregar al calendario</button></form>
+{% endblock %}

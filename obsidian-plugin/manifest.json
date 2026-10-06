@@ -1,0 +1,9 @@
+{
+  "id": "finanzas-local",
+  "name": "Finanzas",
+  "version": "1.0.0",
+  "minAppVersion": "1.8.0",
+  "description": "Abre Finanzas Flask dentro de Obsidian y mantiene su servicio local disponible.",
+  "author": "Personal",
+  "isDesktopOnly": true
+}

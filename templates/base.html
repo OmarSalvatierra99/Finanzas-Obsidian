@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Calendario personal para gestionar deudas y su historial de pagos">
+    <meta name="theme-color" content="#ffffff">
+    <title>{% block title %}{{ project_name }}{% endblock %}</title>
+    <link rel="manifest" href="{{ url_for('web_manifest') }}">
+    <link rel="icon" href="{{ url_for('static', filename='pwa/icon-192.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='pwa/icon-192.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=asset_version) }}">
+    <script src="{{ url_for('static', filename='js/pwa.js', v=asset_version) }}" defer></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <a class="brand" href="{{ url_for('index') }}" aria-label="Ir a Inicio">
+                <span class="brand-mark" aria-hidden="true">F</span>
+                <span>Finanzas</span>
+            </a>
+
+            <nav class="sidebar-nav" aria-label="Navegación principal">
+                <a class="{{ 'active' if active_page == 'home' else '' }}" href="{{ url_for('index') }}" {% if active_page == 'home' %}aria-current="page"{% endif %}><span aria-hidden="true">⌂</span> Inicio</a>
+                <span class="nav-group">Dinero</span>
+                <a class="{{ 'active' if active_page == 'income' else '' }}" href="{{ url_for('income_page') }}" {% if active_page == 'income' %}aria-current="page"{% endif %}><span aria-hidden="true">＋</span> Ingresos</a>
+                <a class="{{ 'active' if active_page == 'debts' else '' }}" href="{{ url_for('debts_page') }}" {% if active_page == 'debts' %}aria-current="page"{% endif %}><span aria-hidden="true">○</span> Deudas</a>
+                <span class="nav-group">Ajustes</span>
+                <a class="{{ 'active' if active_page == 'downloads' else '' }}" href="{{ url_for('downloads_page') }}" {% if active_page == 'downloads' %}aria-current="page"{% endif %}><span aria-hidden="true">↓</span> Descargas</a>
+                <a class="{{ 'active' if active_page == 'settings' else '' }}" href="{{ url_for('settings_page') }}" {% if active_page == 'settings' %}aria-current="page"{% endif %}><span aria-hidden="true">⚙</span> Configuración</a>
+            </nav>
+
+            <div class="sidebar-user">
+                <span class="user-avatar" aria-hidden="true">G</span>
+                <span class="user-copy">
+                    <strong>{{ current_user_display }}</strong>
+                    <small>Espacio personal</small>
+                </span>
+                <form method="post" action="{{ url_for('logout') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="icon-button" type="submit" aria-label="Cerrar sesión">Salir</button>
+                </form>
+            </div>
+        </aside>
+
+        <div class="workspace">
+            <main id="contenido" class="page-shell">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="messages" aria-live="polite">
+                    {% for category, message in messages %}
+                    <p class="message {{ category }}">{{ message }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+            <footer>Los datos se guardan en tu servidor privado.</footer>
+        </div>
+    </div>
+    <nav class="mobile-nav" aria-label="Navegación móvil">
+        <a class="{{ 'active' if active_page == 'home' else '' }}" href="{{ url_for('index') }}" {% if active_page == 'home' %}aria-current="page"{% endif %}>Inicio</a>
+        <a class="{{ 'active' if active_page == 'debts' else '' }}" href="{{ url_for('debts_page') }}" {% if active_page == 'debts' %}aria-current="page"{% endif %}>Deudas</a>
+        <a class="{{ 'active' if active_page == 'income' else '' }}" href="{{ url_for('income_page') }}" {% if active_page == 'income' %}aria-current="page"{% endif %}>Ingresos</a>
+        <details class="mobile-more">
+            <summary>Más</summary>
+            <div class="mobile-more-menu">
+                <a href="{{ url_for('downloads_page') }}">Descargas</a>
+                <a href="{{ url_for('settings_page') }}">Configuración</a>
+                <form method="post" action="{{ url_for('logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Cerrar sesión</button></form>
+            </div>
+        </details>
+    </nav>
+    <script src="{{ url_for('static', filename='js/forms.js') }}?v={{ asset_version }}" defer></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Ingresos · {{ project_name }}{% endblock %}
+{% block content %}
+<header class="page-header"><div><h1>Pagos de Nómina</h1><p>Consulta cuánto te ha pagado Nómina y el historial de tu nómina.</p></div><form method="post" action="{{ url_for('import_income_xml') }}" data-cfdi-refresh><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary-button" type="submit">Actualizar CFDI</button><span class="sr-only" role="status" aria-live="polite"></span></form></header>
+
+<section class="summary-strip" aria-label="Total acumulado de pagos de Nómina">
+    <div><span>Total pagado por Nómina</span><strong class="positive">{{ totals.cfdi }}</strong></div>
+</section>
+
+<section class="section-block" aria-labelledby="income-history-title">
+    <div class="section-heading"><div><h2 id="income-history-title">Historial de pagos</h2><p>Los últimos 100 pagos importados de Nómina. El total acumulado incluye todo el historial.</p></div></div>
+    <div class="database-table"><div class="table-wrap"><table class="income-table"><thead><tr><th>Fecha</th><th>Concepto</th><th class="amount-cell">Monto</th></tr></thead><tbody>{% for movement in movements %}<tr><td class="date-cell">{{ movement.occurred_on }}</td><td class="concept-cell">{{ movement.description }}</td><td class="amount-cell income">{{ movement.signed_amount }}</td></tr>{% else %}<tr><td colspan="3" class="empty-cell"><strong>Todavía no hay pagos de Nómina.</strong><span>Tu nómina aparecerá al importar el primer CFDI.</span></td></tr>{% endfor %}</tbody></table></div></div>
+</section>
+{% endblock %}
+{% block scripts %}<script>
+document.querySelector('[data-cfdi-refresh]').addEventListener('submit', function(event) {
+    if (this.dataset.busy) { event.preventDefault(); return; }
+    this.dataset.busy = '1';
+    const button = this.querySelector('button'); button.disabled = true; button.textContent = 'Actualizando…';
+    this.querySelector('[role=status]').textContent = 'Consultando CFDI en Gmail';
+});
+window.addEventListener('pageshow', () => { const form = document.querySelector('[data-cfdi-refresh]'); delete form.dataset.busy; const button = form.querySelector('button'); button.disabled = false; button.textContent = 'Actualizar CFDI'; });
+</script>{% endblock %}

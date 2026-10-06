@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}Objetivo · {{ project_name }}{% endblock %}
+{% block content %}
+<header class="page-header">
+    <div>
+        <h1>{{ goal.title }}</h1>
+        <p>Debes juntar {{ goal.suggested }} para el <time datetime="{{ goal.target_on }}">{{ goal.target_on }}</time>. Antes elimina tus deudas: de un solo pago o con abonos.</p>
+    </div>
+    <span class="status-label {{ 'overdue' if blockers.blocked else 'paid' }}">{{ 'Bloqueado' if blockers.blocked else 'Listo para empezar' }}</span>
+</header>
+
+<section class="summary-strip" aria-label="Avance del objetivo">
+    <div><span>Meta</span><strong>{{ goal.target }}</strong></div>
+    <div><span>Reservado</span><strong class="positive">{{ goal.saved }}</strong></div>
+    <div><span>Falta</span><strong>{{ goal.remaining }}</strong></div>
+    <div><span>Deudas</span><strong>{{ blockers.total }}</strong></div>
+</section>
+
+{% if goal.id and goal.target_cents != goal.suggested_cents %}
+<section class="collection-section">
+    <div class="collection-summary"><span><strong>Meta actual distinta</strong><small>Actual {{ goal.target }} · sugerida {{ goal.suggested }}</small></span></div>
+    <form class="saving-form" method="post" action="{{ url_for('set_goal_target', goal_id=goal.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="target" value="{{ default_target }}">
+        <input type="hidden" name="target_on" value="{{ goal.target_on }}">
+        <input type="hidden" name="return_to" value="objective">
+        <button class="secondary-button" type="submit">Usar meta sugerida</button>
+    </form>
+</section>
+{% endif %}
+
+<section class="collection-section" aria-labelledby="barbershop-checklist-title">
+    <div class="collection-summary">
+        <span><strong id="barbershop-checklist-title">Antes de aportar</strong><small>Liquida estas deudas primero: total {{ blockers.total }}.</small></span>
+    </div>
+    <div class="goal-list">
+        <article class="goal-row">
+            <div class="goal-main">
+                <h2>Checklist</h2>
+                <dl class="goal-facts">
+                    <div><dt><a href="{{ url_for('debts_page') }}#deudas-un-solo-pago">Un solo pago</a></dt><dd>{{ blockers.single }}</dd></div>
+                    <div><dt><a href="{{ url_for('debts_page') }}#deudas-con-abonos">Con abonos</a></dt><dd>{{ blockers.installment }}</dd></div>
+                </dl>
+                {% if active_debts %}
+                <div class="table-wrap">
+                    <table class="income-table">
+                        <thead><tr><th>Deuda</th><th>Tipo</th><th>Próxima fecha</th><th class="amount-cell">Saldo</th></tr></thead>
+                        <tbody>
+                            {% for debt in active_debts %}
+                            <tr>
+                                <td>{% if debt.name and debt.name != debt.creditor %}{{ debt.creditor }} · {{ debt.name }}{% else %}{{ debt.creditor }}{% endif %}</td>
+                                <td>{{ debt.plan_label }}</td>
+                                <td>{{ debt.due_on or 'Sin fecha' }}</td>
+                                <td class="amount-cell">{{ debt.balance }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+                <progress max="{{ [goal.target_cents, goal.saved_cents, 1]|max }}" value="{{ goal.saved_cents }}" aria-label="{{ goal.saved_percent }}% reservado">{{ goal.saved_percent }}%</progress>
+            </div>
+            <div class="goal-actions">
+                {% if not goal.id %}
+                <form class="saving-form" method="post" action="{{ url_for('create_personal_goal') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="title" value="{{ goal.title }}">
+                    <input type="hidden" name="fund_type" value="planned">
+                    <input type="hidden" name="target" value="{{ default_target }}">
+                    <input type="hidden" name="target_on" value="{{ goal.target_on }}">
+                    <button class="primary-button" type="submit">Crear objetivo</button>
+                </form>
+                {% elif not blockers.blocked %}
+                <details class="saving-details" open>
+                    <summary>Aportar</summary>
+                    <form class="saving-form" method="post" action="{{ url_for('add_goal_savings', goal_id=goal.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <label>Monto <input name="amount" type="number" min="0.01" step="0.01" required></label>
+                        <label>Fecha <input name="occurred_on" type="date" value="{{ today }}" required></label>
+                        <button class="secondary-button" type="submit">Aportar</button>
+                    </form>
+                </details>
+                {% endif %}
+            </div>
+        </article>
+    </div>
+</section>
+{% endblock %}

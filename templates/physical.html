@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Entrenamiento · {{ project_name }}{% endblock %}
+{% block content %}
+<header class="page-header"><div><h1>Entrenamiento</h1><p>Empuje, jale y pierna con variantes de los movimientos básicos.</p></div></header>
+
+<section class="quick-section" aria-labelledby="workout-title">
+    <div class="section-heading compact-heading"><div><h2 id="workout-title">Registrar ejercicio</h2><p>Elige una variante de la base o escribe la tuya.</p></div></div>
+    <form class="composer-form standalone-form workout-entry-form" method="post" action="{{ url_for('create_workout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label>Fecha<input name="occurred_on" type="date" max="{{ today }}" value="{{ today }}" required></label>
+        <label>Día<select name="routine_day" required>{% for key,label in workout_splits.items() %}<option value="{{ key }}"{% if key == 'push' %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+        <label class="wide-field">Ejercicio<input name="exercise" list="exercise-catalog" maxlength="120" placeholder="Ej. Press de banca con barra" autocomplete="off" required></label>
+        <datalist id="exercise-catalog">{% for day in exercise_catalog %}{% for group in day.groups %}{% for exercise in group.variants %}<option value="{{ exercise }}">{{ day.label }} · {{ group.pattern }}</option>{% endfor %}{% endfor %}{% endfor %}</datalist>
+        <label>Peso (kg)<input name="weight" type="number" min="0" step="0.001" value="0" required><small>Usa 0 si es corporal.</small></label>
+        <label>Series<input name="sets" type="number" min="1" max="100" value="3" required></label>
+        <label>Repeticiones<input name="reps" type="number" min="1" max="1000" value="8" required></label>
+        <label class="notes-field">Nota<textarea name="notes" maxlength="500" placeholder="RIR, técnica o ajuste"></textarea></label>
+        <button class="primary-button" type="submit">Guardar ejercicio</button>
+    </form>
+</section>
+
+<section class="section-block" aria-labelledby="exercise-base-title">
+    <div class="section-heading"><div><h2 id="exercise-base-title">Base PPL</h2><p>Escoge una variante por patrón; no necesitas hacerlas todas.</p></div></div>
+    <div class="routine-grid">
+        {% for day in exercise_catalog %}
+        <details class="routine-panel routine-{{ day.key }}"{% if loop.first %} open{% endif %}>
+            <summary><span><strong>{{ day.label }}</strong><small>{{ day.focus }}</small></span></summary>
+            <div class="routine-groups">
+                {% for group in day.groups %}
+                <section><h3>{{ group.pattern }}</h3><p>{{ group.variants|join(' · ') }}</p></section>
+                {% endfor %}
+            </div>
+        </details>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="section-block" aria-labelledby="workout-history">
+    <div class="section-heading workout-history-heading"><div><h2 id="workout-history">Últimos ejercicios</h2><p>Filtra por día o nombre.</p></div><form class="month-filter" method="get"><label for="day-filter">Día</label><select id="day-filter" name="day"><option value="">Todos</option>{% for key,label in workout_splits.items() %}<option value="{{ key }}"{% if active_day == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select><label for="exercise-filter">Ejercicio</label><input id="exercise-filter" name="q" type="search" value="{{ query }}"><button class="secondary-button" type="submit">Filtrar</button></form></div>
+    <div class="database-table"><div class="table-wrap"><table class="workout-table"><thead><tr><th>Fecha</th><th>Día</th><th>Ejercicio</th><th>Peso</th><th>Series × reps</th><th>Nota</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody>{% for item in workouts %}<tr><td>{{ item.occurred_on }}</td><td><span class="routine-label routine-{{ item.routine_day }}">{{ item.routine_label }}</span></td><td>{{ item.exercise }}</td><td>{{ '%.1f'|format(item.weight_grams / 1000) }} kg</td><td>{{ item.sets }} × {{ item.reps }}</td><td>{{ item.notes or '—' }}</td><td><form method="post" action="{{ url_for('delete_workout', workout_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="row-action" type="submit">Eliminar</button></form></td></tr>{% else %}<tr><td colspan="7" class="empty-cell">Sin ejercicios para este filtro.</td></tr>{% endfor %}</tbody></table></div></div>
+</section>
+{% endblock %}

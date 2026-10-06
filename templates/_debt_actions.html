@@ -1,0 +1,56 @@
+{% macro context_fields() %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% if selected_month is defined %}<input type="hidden" name="month" value="{{ selected_month }}"><input type="hidden" name="from_calendar" value="1"><input type="hidden" name="calendar_view" value="{{ 'calendar' if active_page == 'calendar' else 'home' }}">{% endif %}
+{% endmacro %}
+
+{% macro debt_progress(debt) %}
+<span class="debt-progress">
+    <span class="debt-progress-bar"><progress max="100" value="{{ debt.paid_percent }}" aria-label="{{ debt.paid_percent }}% pagado de {{ debt.creditor }}">{{ debt.paid_percent }}%</progress><span class="debt-progress-percent">{{ debt.paid_percent }}%</span></span>
+    <small><span>{{ debt.paid }} pagado</span><strong>{{ debt.balance }} pendiente</strong></small>
+</span>
+{% endmacro %}
+
+{% macro edit_button(field_name='name') %}
+<button class="secondary-button debt-edit-button" type="button" onclick="event.preventDefault(); event.stopPropagation(); const row=this.closest('details'); row.open=true; row.querySelector('input[name={{ field_name }}]').focus()">Editar</button>
+{% endmacro %}
+
+{% macro edit_form(debt_id, name, creditor, notes, form_class='stack-form inline-edit', single_payment=False) %}
+<form class="{{ form_class }}" method="post" action="{{ url_for('edit_debt', debt_id=debt_id) }}">
+{{ context_fields() }}<input type="hidden" name="metadata_only" value="1">
+{% if single_payment %}
+<label>¿A quién le debes?<input name="name" value="{{ creditor }}" maxlength="100" required></label>
+{% else %}
+<label>Nombre<input name="name" value="{{ name }}" maxlength="100" required></label>
+<label>Acreedor<input name="creditor" value="{{ creditor }}" maxlength="100" required></label>
+{% endif %}
+<label>Notas<textarea name="notes" maxlength="1000">{{ notes }}</textarea></label>
+<div class="commitment-form-actions"><button class="secondary-button" type="submit">Guardar</button></div>
+</form>
+{% endmacro %}
+
+{% macro edit_fields(debt_id, name, creditor, notes, single_payment=False) %}
+<details class="payment-details"><summary>Editar</summary>
+{{ edit_form(debt_id, name, creditor, notes, single_payment=single_payment) }}
+</details>
+{% endmacro %}
+
+{% macro adjust_fields(debt_id, balance_cents) %}
+<details class="payment-details"><summary>Ajustar saldo</summary>
+<form class="stack-form inline-edit" method="post" action="{{ url_for('adjust_debt_balance', debt_id=debt_id) }}">
+{{ context_fields() }}<input type="hidden" name="expected_balance" value="{{ balance_cents }}">
+<label>Nuevo saldo pendiente<input name="balance" type="number" min="0" max="999999999.99" step="0.01" value="{{ '%.2f'|format(balance_cents / 100) }}" required></label>
+<label>Motivo<textarea name="reason" maxlength="300" required></textarea></label>
+<label>Fecha si no quedan cuotas<input name="target_on" type="date" min="{{ today }}" value="{{ today }}"></label>
+<button class="secondary-button" type="submit">Guardar ajuste</button>
+</form></details>
+{% endmacro %}
+
+{% macro move_fields(payment) %}
+<form class="stack-form inline-edit calendar-move-form" method="post" action="{{ url_for('move_debt_installment', debt_id=payment.source_id, installment_id=payment.item_id) if payment.kind == 'debt' else url_for('move_commitment_occurrence', commitment_id=payment.source_id) }}">
+{{ context_fields() }}
+<input type="hidden" name="source_occurrence_on" value="{{ payment.source_occurrence_on }}">
+<input type="hidden" name="expected_on" value="{{ payment.occurrence_on }}">
+<label>Nueva fecha<input name="target_on" type="date" min="{{ today }}" value="{{ payment.occurrence_on }}" required></label>
+<button class="secondary-button" type="submit">Mover fecha</button>
+</form>
+{% endmacro %}
