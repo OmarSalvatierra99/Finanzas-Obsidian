@@ -6,7 +6,7 @@
 <header class="page-header">
     <div>
         <h1>Configuración</h1>
-        <p>Administra la cuenta compartida por tus automatizaciones.</p>
+        <p>Configura las integraciones de tu agenda financiera.</p>
     </div>
 </header>
 
@@ -25,7 +25,7 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <label>
             Cuenta de Gmail
-            <input name="email" type="email" maxlength="254" value="{{ gmail_email }}" autocomplete="email" readonly required>
+            <input name="email" type="email" maxlength="254" value="{{ gmail_email }}" autocomplete="email" required>
             <small>Se usa para enviar recordatorios y leer los XML recibidos.</small>
         </label>
         <label>

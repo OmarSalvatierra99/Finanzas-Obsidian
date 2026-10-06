@@ -9,7 +9,6 @@ import csv
 import hashlib
 import hmac
 import io
-import json
 import logging
 import os
 import re
@@ -17,17 +16,14 @@ import secrets
 import smtplib
 import sqlite3
 import sys
-import tempfile
-import uuid
-import zipfile
-from contextlib import closing, contextmanager
+from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from flask import Flask, abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 try:
     from cryptography.fernet import Fernet, InvalidToken
 except ModuleNotFoundError:
@@ -36,7 +32,7 @@ except ModuleNotFoundError:
         raise
     sys.path.append(str(system_packages))
     from cryptography.fernet import Fernet, InvalidToken
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import check_password_hash
 
 try:
     from dotenv import load_dotenv
@@ -47,10 +43,6 @@ except ImportError:
 
 
 ROOT_DIR = Path(__file__).resolve().parent
-WORKSPACE_ROOT = ROOT_DIR.parent
-if str(WORKSPACE_ROOT) not in sys.path:
-    sys.path.insert(0, str(WORKSPACE_ROOT))
-
 
 
 PROJECT_KEY = "27-finanzas"
@@ -94,39 +86,6 @@ MONTH_NAMES = (
     "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 )
-TATTOO_STATUSES = {"idea": "Idea", "planeado": "Planeado", "en_proceso": "En proceso", "terminado": "Terminado"}
-WORKOUT_SPLITS = {"push": "Empuje", "pull": "Jale", "legs": "Pierna", "other": "Otro"}
-EXERCISE_CATALOG = (
-    {
-        "key": "push", "label": "Empuje", "focus": "Pecho, hombro y tríceps",
-        "groups": (
-            {"pattern": "Press horizontal", "variants": ("Press de banca con barra", "Press de banca con mancuernas", "Press de pecho en máquina", "Lagartijas")},
-            {"pattern": "Press inclinado", "variants": ("Press inclinado con barra", "Press inclinado con mancuernas", "Press inclinado en máquina", "Lagartijas con pies elevados")},
-            {"pattern": "Press vertical", "variants": ("Press militar con barra", "Press de hombro con mancuernas", "Press Arnold", "Press de hombro en máquina")},
-            {"pattern": "Aislamiento", "variants": ("Elevación lateral con mancuernas", "Elevación lateral en polea", "Jalón de tríceps con cuerda", "Extensión de tríceps sobre la cabeza")},
-        ),
-    },
-    {
-        "key": "pull", "label": "Jale", "focus": "Espalda, deltoide posterior y bíceps",
-        "groups": (
-            {"pattern": "Jale vertical", "variants": ("Dominadas pronas", "Dominadas neutras", "Dominadas asistidas", "Jalón al pecho")},
-            {"pattern": "Remo horizontal", "variants": ("Remo con barra", "Remo con mancuerna", "Remo sentado en polea", "Remo con pecho apoyado")},
-            {"pattern": "Bisagra pesada", "variants": ("Peso muerto convencional", "Peso muerto sumo", "Peso muerto con barra hexagonal", "Rack pull")},
-            {"pattern": "Aislamiento", "variants": ("Face pull", "Pájaros con mancuernas", "Curl con barra", "Curl martillo")},
-        ),
-    },
-    {
-        "key": "legs", "label": "Pierna", "focus": "Cuádriceps, femoral, glúteo y pantorrilla",
-        "groups": (
-            {"pattern": "Sentadilla", "variants": ("Sentadilla trasera", "Sentadilla frontal", "Sentadilla goblet", "Sentadilla hack")},
-            {"pattern": "Unilateral", "variants": ("Sentadilla búlgara", "Desplantes caminando", "Desplante hacia atrás", "Subida al cajón")},
-            {"pattern": "Cadena posterior", "variants": ("Peso muerto rumano con barra", "Peso muerto rumano con mancuernas", "Hip thrust", "Curl femoral sentado")},
-            {"pattern": "Máquinas y pantorrilla", "variants": ("Prensa de pierna", "Extensión de pierna", "Pantorrilla de pie", "Pantorrilla sentado")},
-        ),
-    },
-)
-MAX_TATTOO_BYTES = 8 * 1024 * 1024
-MAX_TATTOO_PIXELS = 20_000_000
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -195,21 +154,6 @@ def _local_today(timezone_name: str = "America/Mexico_City", now: datetime | Non
     if current.tzinfo is None:
         current = current.replace(tzinfo=UTC)
     return current.astimezone(ZoneInfo(timezone_name)).date()
-
-
-def _grams(value: object, field_name: str, *, allow_zero: bool = False) -> int:
-    raw = str(value or "").replace(",", "").strip()
-    try:
-        grams = int((Decimal(raw) * 1000).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
-    except (InvalidOperation, ValueError):
-        raise ValueError(f"Captura un peso valido para {field_name}.") from None
-    if grams < 0 or (not allow_zero and grams == 0):
-        raise ValueError(f"El peso de {field_name} no puede ser negativo ni cero.")
-    return grams
-
-
-def _normalize_exercise(value: str) -> str:
-    return " ".join(value.casefold().split())
 
 
 def _month_date(year: int, month: int, day: int) -> date:
@@ -385,14 +329,6 @@ def _month_bounds(month: str) -> tuple[str, str]:
     year, month_number = map(int, month.split("-"))
     last_day = calendar.monthrange(year, month_number)[1]
     return f"{month}-01", f"{month}-{last_day:02d}"
-
-
-def _next_month(value: str) -> str:
-    current = date.fromisoformat(value)
-    year = current.year + current.month // 12
-    month = current.month % 12 + 1
-    day = min(current.day, calendar.monthrange(year, month)[1])
-    return date(year, month, day).isoformat()
 
 
 def _now() -> str:
@@ -613,46 +549,6 @@ def _init_db(app: Flask) -> None:
                 FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE RESTRICT
             );
 
-            CREATE TABLE IF NOT EXISTS habit_entries (
-                occurred_on TEXT PRIMARY KEY,
-                trained INTEGER NOT NULL DEFAULT 0 CHECK (trained IN (0, 1)),
-                no_alcohol INTEGER NOT NULL DEFAULT 0 CHECK (no_alcohol IN (0, 1)),
-                slept_on_time INTEGER NOT NULL DEFAULT 0 CHECK (slept_on_time IN (0, 1)),
-                financial_discipline INTEGER NOT NULL DEFAULT 0 CHECK (financial_discipline IN (0, 1)),
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS body_metrics (
-                occurred_on TEXT PRIMARY KEY,
-                weight_grams INTEGER NOT NULL CHECK (weight_grams BETWEEN 20000 AND 400000),
-                created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS workout_entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                occurred_on TEXT NOT NULL,
-                routine_day TEXT NOT NULL DEFAULT 'other' CHECK (routine_day IN ('push', 'pull', 'legs', 'other')),
-                exercise TEXT NOT NULL,
-                exercise_normalized TEXT NOT NULL,
-                weight_grams INTEGER NOT NULL CHECK (weight_grams >= 0),
-                sets INTEGER NOT NULL CHECK (sets BETWEEN 1 AND 100),
-                reps INTEGER NOT NULL CHECK (reps BETWEEN 1 AND 1000),
-                notes TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS tattoos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                body_area TEXT NOT NULL DEFAULT '',
-                tattooed_on TEXT NOT NULL DEFAULT '',
-                artist TEXT NOT NULL DEFAULT '',
-                cost_cents INTEGER NOT NULL DEFAULT 0 CHECK (cost_cents >= 0),
-                status TEXT NOT NULL DEFAULT 'idea' CHECK (status IN ('idea', 'planeado', 'en_proceso', 'terminado')),
-                notes TEXT NOT NULL DEFAULT '',
-                photo_name TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL
-            );
 
             CREATE INDEX IF NOT EXISTS idx_movements_occurred_on
                 ON movements(occurred_on DESC, id DESC);
@@ -672,12 +568,6 @@ def _init_db(app: Flask) -> None:
                 ON movement_allocations(recurring_commitment_id, occurrence_on, movement_id);
             CREATE INDEX IF NOT EXISTS idx_fund_transactions_date
                 ON fund_transactions(goal_id, occurred_on DESC, id DESC);
-            CREATE INDEX IF NOT EXISTS idx_habits_date
-                ON habit_entries(occurred_on DESC);
-            CREATE INDEX IF NOT EXISTS idx_body_metrics_date
-                ON body_metrics(occurred_on DESC);
-            CREATE INDEX IF NOT EXISTS idx_workouts_exercise
-                ON workout_entries(exercise_normalized, occurred_on DESC, id DESC);
             """
         )
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(debts)")}
@@ -740,11 +630,6 @@ def _init_db(app: Flask) -> None:
             connection.execute(
                 "ALTER TABLE goals ADD COLUMN fund_type TEXT NOT NULL DEFAULT 'planned'"
             )
-        workout_columns = {row["name"] for row in connection.execute("PRAGMA table_info(workout_entries)")}
-        if "routine_day" not in workout_columns:
-            connection.execute(
-                "ALTER TABLE workout_entries ADD COLUMN routine_day TEXT NOT NULL DEFAULT 'other' CHECK (routine_day IN ('push', 'pull', 'legs', 'other'))"
-            )
         expense_category_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(expense_categories)")
         }
@@ -775,7 +660,6 @@ def _init_db(app: Flask) -> None:
         connection.execute("CREATE INDEX IF NOT EXISTS idx_debts_priority ON debts(priority, balance_cents, due_on)")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_commitment_exceptions_moved ON commitment_exceptions(moved_to, commitment_id)")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_goals_type ON goals(fund_type, is_completed, id)")
-        connection.execute("CREATE INDEX IF NOT EXISTS idx_workouts_routine ON workout_entries(routine_day, occurred_on DESC, id DESC)")
         from minimal_debts import initialize
         initialize(connection)
         now = _now()
@@ -783,8 +667,6 @@ def _init_db(app: Flask) -> None:
             "INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES (?, ?, ?)",
             (
                 ("urgent_debt_target_cents", "0", now),
-                ("body_start_grams", "70000", now),
-                ("body_target_grams", "70000", now),
             ),
         )
         if not connection.execute("SELECT 1 FROM expense_categories LIMIT 1").fetchone():
@@ -1050,34 +932,6 @@ def _expense_chart(connection: sqlite3.Connection, month: str) -> dict:
         "segments": segments,
         "gradient": ", ".join(stops),
         "total": _format_money(total),
-    }
-
-
-def _fortnight_plan(target_on: str, remaining_cents: int, today: date | None = None) -> dict:
-    if not target_on:
-        return {"fortnights": None, "per_fortnight": "", "target_overdue": False}
-    current = today or date.today()
-    target = date.fromisoformat(target_on)
-    if target < current:
-        return {
-            "fortnights": 0,
-            "per_fortnight": _format_money(remaining_cents),
-            "target_overdue": True,
-        }
-
-    fortnights = 0
-    cursor = date(current.year, current.month, 1)
-    while cursor <= target:
-        last_day = calendar.monthrange(cursor.year, cursor.month)[1]
-        for day in (15, last_day):
-            cutoff = date(cursor.year, cursor.month, day)
-            fortnights += current <= cutoff <= target
-        cursor = date(cursor.year + cursor.month // 12, cursor.month % 12 + 1, 1)
-    installments = max(1, fortnights)
-    return {
-        "fortnights": fortnights,
-        "per_fortnight": _format_money((remaining_cents + installments - 1) // installments),
-        "target_overdue": False,
     }
 
 
@@ -1374,190 +1228,10 @@ def _apply_debt_payment(
     return settled
 
 
-def _calendar_groups(connection: sqlite3.Connection, start: date, end: date, today: date) -> list[dict]:
-    items = []
-    for item in _commitment_occurrences(connection, start, end):
-        item.update(kind="commitment", source_id=item["commitment_id"], label=item["title"])
-        items.append(item)
-    for item in _debt_installments(connection, start, end):
-        item.update(
-            kind="debt", source_id=item["debt_id"], occurrence_on=item["due_on"],
-            label=f"{item['creditor']} · {item['name']}", amount=_format_money(item["amount_cents"]),
-            remaining=_format_money(item["remaining_cents"]), is_omitted=False,
-        )
-        items.append(item)
-    for row in connection.execute(
-        """
-        SELECT m.id, m.category, m.description, m.amount_cents, m.occurred_on
-        FROM movements AS m
-        WHERE m.kind = 'expense' AND m.occurred_on BETWEEN ? AND ?
-          AND NOT EXISTS (SELECT 1 FROM movement_allocations a WHERE a.movement_id = m.id)
-          AND (
-              m.category = 'Deudas'
-              OR EXISTS (
-                  SELECT 1 FROM recurring_commitments c WHERE c.category = m.category
-              )
-          )
-        ORDER BY m.occurred_on, m.id
-        """,
-        (start.isoformat(), end.isoformat()),
-    ):
-        amount = int(row["amount_cents"])
-        items.append(
-            {
-                **dict(row), "kind": "record", "source_id": row["id"],
-                "occurrence_on": row["occurred_on"], "label": row["description"] or row["category"],
-                "amount": _format_money(amount), "paid_cents": amount, "remaining_cents": 0,
-                "remaining": _format_money(0), "is_omitted": False,
-                "type_label": "Deuda pagada",
-            }
-        )
-    groups = {}
-    for item in sorted(items, key=lambda value: (value["occurrence_on"], value["label"])):
-        due = date.fromisoformat(item["occurrence_on"])
-        if item["is_omitted"]:
-            state, state_label = "omitted", "Omitido"
-        elif not item["remaining_cents"]:
-            state, state_label = "paid", "Pagado"
-        elif due < today:
-            state, state_label = "overdue", "Vencido"
-        elif due == today:
-            state, state_label = "today", "Vence hoy"
-        else:
-            state, state_label = "upcoming", "Próximo"
-        item.update(state=state, state_label=state_label)
-        key = (item["kind"], item["source_id"])
-        group = groups.setdefault(
-            key,
-            {"kind": item["kind"], "source_id": item["source_id"], "label": item["label"], "items": [], "remaining_cents": 0},
-        )
-        group["items"].append(item)
-        group["remaining_cents"] += item["remaining_cents"]
-    for group in groups.values():
-        group["remaining"] = _format_money(group["remaining_cents"])
-        group["count"] = len(group["items"])
-        group["suggested_cents"] = next((item["remaining_cents"] for item in group["items"] if item["remaining_cents"]), 0)
-    return list(groups.values())
-
-
 def _calendar_debt_group_key(payment: dict) -> str:
     if payment.get("kind") != "debt" or payment.get("creditor_type") != "family":
         return ""
     return str(payment.get("creditor") or "").split(maxsplit=1)[0].casefold()
-
-
-def _combine_calendar_debts(payments: list[dict]) -> list[dict]:
-    combined, families = [], {}
-    for payment in payments:
-        key = _calendar_debt_group_key(payment)
-        if key:
-            families.setdefault(key, []).append(payment)
-        else:
-            combined.append(payment)
-    for members in families.values():
-        if len(members) == 1:
-            combined.extend(members)
-            continue
-        pending = [member for member in members if member["remaining_cents"]]
-        person = members[0]["creditor"].split(maxsplit=1)[0]
-        names = []
-        for member in members:
-            name = member["debt_name"]
-            if name.casefold().startswith(f"{person.casefold()} "):
-                name = name[len(person):].strip()
-            if name not in names:
-                names.append(name)
-        remaining = sum(member["remaining_cents"] for member in members)
-        amount = sum(member["amount_cents"] for member in members)
-        focus = pending[0] if pending else members[0]
-        combined.append({
-            **focus,
-            "source_id": focus["source_id"],
-            "item_id": focus["item_id"],
-            "item_ids": [member["item_id"] for member in pending],
-            "grouped_debt": len(pending) > 1,
-            "label": f"{person} · {' + '.join(names)}",
-            "type_label": "Deudas",
-            "schedule_type": "grouped",
-            "members": members,
-            "amount_cents": amount,
-            "remaining_cents": remaining,
-            "remaining": _format_money(remaining),
-            "display_amount": _format_money(remaining if remaining else amount),
-            "state": focus["state"] if pending else "paid",
-            "state_label": focus["state_label"] if pending else "Pagado",
-        })
-    return sorted(combined, key=lambda item: (item["kind"] != "debt", item["label"]))
-
-
-def _calendar_month_grid(groups: list[dict], month_start: date, today: date) -> dict:
-    by_date: dict[str, list[dict]] = {}
-    total = 0
-    for group in groups:
-        for item in group["items"]:
-            if item["is_omitted"]:
-                continue
-            payment = {
-                "kind": group["kind"],
-                "source_id": group["source_id"],
-                "item_id": item["id"] if group["kind"] == "debt" else None,
-                "item_ids": [],
-                "grouped_debt": False,
-                "occurrence_on": item["occurrence_on"],
-                "source_occurrence_on": item.get("source_occurrence_on", item["occurrence_on"]),
-                "type_label": item.get("type_label", "Deuda con abonos" if group["kind"] == "debt" else "Deuda recurrente"),
-                "label": group["label"],
-                "remaining": item["remaining"],
-                "display_amount": item["amount"] if not item["remaining_cents"] else item["remaining"],
-                "remaining_cents": item["remaining_cents"],
-                "state": item["state"],
-                "state_label": item["state_label"],
-                "schedule_type": item.get("schedule_type", ""),
-                "creditor": item.get("creditor", ""),
-                "creditor_type": item.get("creditor_type", "person"),
-                "priority": item.get("priority", "normal"),
-                "reminder_days": item.get("reminder_days", 1),
-                "original_cents": item.get("original_cents", 0),
-                "balance_cents": item.get("balance_cents", 0),
-                "amount_cents": item.get("amount_cents", 0),
-                "debt_name": item.get("name", ""),
-                "notes": item.get("notes", ""),
-            }
-            by_date.setdefault(item["occurrence_on"], []).append(payment)
-            total += item["remaining_cents"]
-    weeks = []
-    for week in calendar.Calendar(firstweekday=0).monthdatescalendar(month_start.year, month_start.month):
-        days = []
-        for day in week:
-            payments = _combine_calendar_debts(by_date.get(day.isoformat(), []))
-            pending_cents = sum(payment["remaining_cents"] for payment in payments)
-            days.append({
-                "date": day.isoformat(), "number": day.day,
-                "in_month": day.month == month_start.month, "is_today": day == today,
-                "payments": payments,
-                "pending_cents": pending_cents, "total": _format_money(pending_cents),
-            })
-        weeks.append(days)
-    return {
-        "label": f"{MONTH_NAMES[month_start.month]} {month_start.year}",
-        "weeks": weeks,
-        "count": sum(payment["remaining_cents"] > 0 for items in by_date.values() for payment in items),
-        "total": _format_money(total),
-    }
-
-
-def _filter_calendar_groups(groups: list[dict], *, overdue: bool) -> list[dict]:
-    filtered = []
-    for group in groups:
-        group["items"] = [item for item in group["items"] if (item["state"] == "overdue") == overdue]
-        if not group["items"]:
-            continue
-        group["count"] = len(group["items"])
-        group["remaining_cents"] = sum(item["remaining_cents"] for item in group["items"])
-        group["remaining"] = _format_money(group["remaining_cents"])
-        group["suggested_cents"] = next((item["remaining_cents"] for item in group["items"] if item["remaining_cents"]), 0)
-        filtered.append(group)
-    return filtered
 
 
 def _setting_int(connection: sqlite3.Connection, key: str, default: int) -> int:
@@ -1801,35 +1475,6 @@ def _list_recurring_debts(connection: sqlite3.Connection) -> list[dict]:
     return debts
 
 
-def _debt_payment_plan(debts: list[dict]) -> list[dict]:
-    total = sum(debt["balance_cents"] for debt in debts)
-    remaining_by_debt = {debt["id"]: debt["balance_cents"] for debt in debts}
-    scheduled = sorted(
-        (
-            (item["due_on"], item["remaining_cents"], debt["creditor"], debt["id"])
-            for debt in debts
-            for item in debt["pending_installments"]
-        ),
-        key=lambda item: (item[0], item[1], item[2]),
-    )
-    plan = []
-    for due_on, scheduled_amount, creditor, debt_id in scheduled:
-        amount = min(scheduled_amount, remaining_by_debt[debt_id])
-        if not amount:
-            continue
-        remaining_by_debt[debt_id] -= amount
-        total -= amount
-        plan.append(
-            {
-                "due_on": due_on,
-                "creditor": creditor,
-                "payment": _format_money(amount),
-                "balance_after": _format_money(total),
-            }
-        )
-    return plan
-
-
 def _barbershop_blockers(connection: sqlite3.Connection) -> dict:
     row = connection.execute(
         """
@@ -1881,25 +1526,6 @@ def _barbershop_goal(connection: sqlite3.Connection) -> dict:
         "saved": _format_money(saved),
         "remaining": _format_money(max(0, target - saved)),
         "saved_percent": min(100, round(saved / target * 100)) if target else 0,
-    }
-
-
-def _tattoo_form_data(form) -> dict:
-    status = str(form.get("status") or "idea").strip()
-    if status not in TATTOO_STATUSES:
-        raise ValueError("Selecciona un estado valido.")
-    tattooed_on = str(form.get("tattooed_on") or "").strip()
-    if tattooed_on:
-        tattooed_on = _parse_date(tattooed_on, "el tatuaje")
-    cost_raw = str(form.get("cost") or "").strip()
-    return {
-        "name": _clean_text(form.get("name"), "el proyecto", limit=120),
-        "body_area": _clean_text(form.get("body_area"), "la zona", required=False, limit=100),
-        "tattooed_on": tattooed_on,
-        "artist": _clean_text(form.get("artist"), "el tatuador", required=False, limit=120),
-        "cost_cents": _nonnegative_money_to_cents(cost_raw) if cost_raw else 0,
-        "status": status,
-        "notes": _clean_text(form.get("notes"), "las notas", required=False, limit=1000),
     }
 
 
@@ -1971,49 +1597,6 @@ def _is_fortnightly_pair(connection: sqlite3.Connection, first_id: int, second_i
     )
 
 
-def _save_tattoo_photo(upload, upload_dir: Path) -> str:
-    if not upload or not upload.filename:
-        return ""
-    extension = Path(upload.filename).suffix.lower()
-    if extension not in {".jpg", ".jpeg", ".png", ".webp"}:
-        raise ValueError("La foto debe ser JPEG, PNG o WEBP.")
-    payload = upload.stream.read(MAX_TATTOO_BYTES + 1)
-    if len(payload) > MAX_TATTOO_BYTES:
-        raise ValueError("La foto no puede superar 8 MiB.")
-    try:
-        from PIL import Image, ImageOps, UnidentifiedImageError
-
-        with Image.open(io.BytesIO(payload)) as source:
-            detected = source.format
-            source.verify()
-        if detected not in {"JPEG", "PNG", "WEBP"}:
-            raise ValueError("El contenido de la foto no es JPEG, PNG o WEBP.")
-        expected = {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG", ".webp": "WEBP"}[extension]
-        if detected != expected:
-            raise ValueError("La extension de la foto no coincide con su contenido.")
-        with Image.open(io.BytesIO(payload)) as source:
-            if source.width * source.height > MAX_TATTOO_PIXELS:
-                raise ValueError("La foto no puede superar 20 megapixeles.")
-            image = ImageOps.exif_transpose(source)
-            output = io.BytesIO()
-            if detected == "JPEG":
-                image.convert("RGB").save(output, "JPEG", quality=90, optimize=True)
-                suffix = ".jpg"
-            elif detected == "PNG":
-                image.save(output, "PNG", optimize=True)
-                suffix = ".png"
-            else:
-                image.save(output, "WEBP", quality=90, method=4)
-                suffix = ".webp"
-    except ValueError:
-        raise
-    except (UnidentifiedImageError, OSError, Image.DecompressionBombError):
-        raise ValueError("La foto esta dañada o no coincide con su formato.") from None
-    filename = f"{uuid.uuid4().hex}{suffix}"
-    (upload_dir / filename).write_bytes(output.getvalue())
-    return filename
-
-
 def create_app(test_config: dict | None = None) -> Flask:
     app = Flask(__name__)
     app.config.update(
@@ -2030,7 +1613,6 @@ def create_app(test_config: dict | None = None) -> Flask:
         LOGS_DIR=Path(os.getenv("LOGS_DIR", ROOT_DIR / "logs")),
         LOG_LEVEL=os.getenv("LOG_LEVEL", "INFO"),
         APP_TIMEZONE=os.getenv("APP_TIMEZONE", "America/Mexico_City"),
-        TATTOO_UPLOAD_DIR=Path(os.getenv("TATTOO_UPLOAD_DIR", ROOT_DIR / "instance" / "uploads" / "tattoos")),
         MAX_CONTENT_LENGTH=9 * 1024 * 1024,
     )
     if test_config:
@@ -2044,7 +1626,6 @@ def create_app(test_config: dict | None = None) -> Flask:
 
     _configure_logging(app)
     _init_db(app)
-    Path(app.config["TATTOO_UPLOAD_DIR"]).mkdir(parents=True, exist_ok=True, mode=0o700)
     app.config["AUTH_USER"] = _build_auth_user()
 
     def csrf_token() -> str:
@@ -2069,7 +1650,6 @@ def create_app(test_config: dict | None = None) -> Flask:
             "schedule_types": SCHEDULE_TYPES,
             "fund_types": FUND_TYPES,
             "commitment_frequencies": COMMITMENT_FREQUENCIES,
-            "tattoo_statuses": TATTOO_STATUSES,
         }
 
     @app.before_request
@@ -3167,222 +2747,6 @@ def create_app(test_config: dict | None = None) -> Flask:
             )
         return redirect(url_for("settings_page"))
 
-    @app.get("/disciplina")
-    def discipline_page():
-        return redirect(url_for("settings_page"))
-
-    @app.post("/disciplina/habitos")
-    @app.post("/disciplina/dia")
-    def legacy_discipline_action():
-        return redirect(url_for("settings_page"))
-
-    @app.get("/fisico")
-    @app.get("/entrenamiento")
-    def physical_page():
-        return redirect(url_for("index"))
-
-    @app.get("/peso")
-    def weight_page():
-        return redirect(url_for("index"))
-
-    @app.post("/fisico/perfil")
-    @app.post("/peso/perfil")
-    def save_body_profile():
-        try:
-            start = _grams(request.form.get("start_weight"), "inicio")
-            target = _grams(request.form.get("target_weight"), "meta")
-            if not 20_000 <= start <= 400_000 or not 20_000 <= target <= 400_000:
-                raise ValueError("El peso debe estar entre 20 y 400 kg.")
-            with _db_connection(app) as connection:
-                connection.executemany(
-                    """
-                    INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
-                    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-                    """,
-                    (("body_start_grams", str(start), _now()), ("body_target_grams", str(target), _now())),
-                )
-        except ValueError as exc:
-            flash(str(exc), "error")
-        else:
-            flash("Perfil fisico actualizado.", "success")
-        return redirect(url_for("weight_page"))
-
-    @app.post("/fisico/peso")
-    @app.post("/peso/registros")
-    def save_body_weight():
-        try:
-            occurred_on = _parse_date(request.form.get("occurred_on"), "el peso")
-            if date.fromisoformat(occurred_on) > _local_today(app.config["APP_TIMEZONE"]):
-                raise ValueError("No puedes registrar peso en una fecha futura.")
-            weight = _grams(request.form.get("weight"), "corporal")
-            if not 20_000 <= weight <= 400_000:
-                raise ValueError("El peso corporal debe estar entre 20 y 400 kg.")
-            with _db_connection(app) as connection:
-                connection.execute(
-                    """
-                    INSERT INTO body_metrics (occurred_on, weight_grams, created_at) VALUES (?, ?, ?)
-                    ON CONFLICT(occurred_on) DO UPDATE SET weight_grams = excluded.weight_grams
-                    """,
-                    (occurred_on, weight, _now()),
-                )
-        except ValueError as exc:
-            flash(str(exc), "error")
-        else:
-            flash("Peso guardado.", "success")
-        return redirect(url_for("weight_page"))
-
-    @app.post("/fisico/peso/<occurred_on>/eliminar")
-    @app.post("/peso/<occurred_on>/eliminar")
-    def delete_body_weight(occurred_on: str):
-        try:
-            occurred_on = _parse_date(occurred_on, "el peso")
-            with _db_connection(app) as connection:
-                cursor = connection.execute("DELETE FROM body_metrics WHERE occurred_on = ?", (occurred_on,))
-        except ValueError as exc:
-            flash(str(exc), "error")
-        else:
-            flash("Peso eliminado." if cursor.rowcount else "Peso no encontrado.", "success" if cursor.rowcount else "error")
-        return redirect(url_for("weight_page"))
-
-    @app.post("/fisico/entrenamientos")
-    @app.post("/entrenamiento/registros")
-    def create_workout():
-        try:
-            occurred_on = _parse_date(request.form.get("occurred_on"), "el entrenamiento")
-            if date.fromisoformat(occurred_on) > _local_today(app.config["APP_TIMEZONE"]):
-                raise ValueError("No puedes registrar un entrenamiento futuro.")
-            routine_day = str(request.form.get("routine_day") or "other").strip()
-            if routine_day not in WORKOUT_SPLITS:
-                raise ValueError("Selecciona un día de rutina válido.")
-            exercise = _clean_text(request.form.get("exercise"), "el ejercicio", limit=120)
-            weight = _grams(request.form.get("weight") or "0", "ejercicio", allow_zero=True)
-            try:
-                sets = int(request.form.get("sets") or 0)
-                reps = int(request.form.get("reps") or 0)
-            except ValueError:
-                raise ValueError("Series y repeticiones deben ser numeros enteros.") from None
-            if not 1 <= sets <= 100 or not 1 <= reps <= 1000:
-                raise ValueError("Captura entre 1 y 100 series y entre 1 y 1000 repeticiones.")
-            notes = _clean_text(request.form.get("notes"), "la nota", required=False, limit=500)
-            with _db_connection(app) as connection:
-                connection.execute(
-                    """
-                    INSERT INTO workout_entries
-                        (occurred_on, routine_day, exercise, exercise_normalized, weight_grams, sets, reps, notes, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (occurred_on, routine_day, exercise, _normalize_exercise(exercise), weight, sets, reps, notes, _now()),
-                )
-        except ValueError as exc:
-            flash(str(exc), "error")
-        else:
-            flash("Entrenamiento guardado.", "success")
-        return redirect(url_for("physical_page"))
-
-    @app.post("/fisico/entrenamientos/<int:workout_id>/eliminar")
-    @app.post("/entrenamiento/registros/<int:workout_id>/eliminar")
-    def delete_workout(workout_id: int):
-        with _db_connection(app) as connection:
-            cursor = connection.execute("DELETE FROM workout_entries WHERE id = ?", (workout_id,))
-        flash("Entrenamiento eliminado." if cursor.rowcount else "Entrenamiento no encontrado.", "success" if cursor.rowcount else "error")
-        return redirect(url_for("physical_page"))
-
-    @app.route("/tatuajes", methods=["GET", "POST"])
-    def tattoos_page():
-        if request.method == "GET":
-            return redirect(url_for("index"))
-        upload_dir = Path(app.config["TATTOO_UPLOAD_DIR"])
-        if request.method == "POST":
-            photo_name = ""
-            try:
-                tattoo = _tattoo_form_data(request.form)
-                photo_name = _save_tattoo_photo(request.files.get("photo"), upload_dir)
-                with _db_connection(app) as connection:
-                    connection.execute(
-                        """
-                        INSERT INTO tattoos
-                            (name, body_area, tattooed_on, artist, cost_cents, status, notes, photo_name, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (*tattoo.values(), photo_name, _now()),
-                    )
-            except (ValueError, sqlite3.Error) as exc:
-                if photo_name:
-                    (upload_dir / photo_name).unlink(missing_ok=True)
-                flash(str(exc) if isinstance(exc, ValueError) else "No se pudo guardar el proyecto.", "error")
-            else:
-                flash("Proyecto de tatuaje guardado.", "success")
-                return redirect(url_for("tattoos_page"))
-        with _db_connection(app) as connection:
-            tattoos = [
-                {**dict(row), "cost": _format_money(row["cost_cents"]), "status_label": TATTOO_STATUSES[row["status"]]}
-                for row in connection.execute("SELECT * FROM tattoos ORDER BY tattooed_on DESC, id DESC")
-            ]
-        return render_template("tattoos.html", active_page="tattoos", tattoos=tattoos)
-
-    @app.post("/tatuajes/<int:tattoo_id>/editar")
-    def edit_tattoo(tattoo_id: int):
-        upload_dir = Path(app.config["TATTOO_UPLOAD_DIR"])
-        new_photo = ""
-        old_photo = ""
-        try:
-            tattoo = _tattoo_form_data(request.form)
-            new_photo = _save_tattoo_photo(request.files.get("photo"), upload_dir)
-            with _db_connection(app) as connection:
-                current = connection.execute("SELECT photo_name FROM tattoos WHERE id = ?", (tattoo_id,)).fetchone()
-                if not current:
-                    raise ValueError("Proyecto no encontrado.")
-                old_photo = current["photo_name"]
-                connection.execute(
-                    """
-                    UPDATE tattoos SET name = ?, body_area = ?, tattooed_on = ?, artist = ?,
-                                       cost_cents = ?, status = ?, notes = ?, photo_name = ?
-                    WHERE id = ?
-                    """,
-                    (*tattoo.values(), new_photo or old_photo, tattoo_id),
-                )
-        except (ValueError, sqlite3.Error) as exc:
-            if new_photo:
-                (upload_dir / new_photo).unlink(missing_ok=True)
-            flash(str(exc) if isinstance(exc, ValueError) else "No se pudo actualizar el proyecto.", "error")
-        else:
-            if new_photo and old_photo:
-                (upload_dir / old_photo).unlink(missing_ok=True)
-            flash("Proyecto actualizado.", "success")
-        return redirect(url_for("tattoos_page"))
-
-    @app.get("/tatuajes/<int:tattoo_id>/foto")
-    def tattoo_photo(tattoo_id: int):
-        with _db_connection(app) as connection:
-            tattoo = connection.execute("SELECT photo_name FROM tattoos WHERE id = ?", (tattoo_id,)).fetchone()
-        if not tattoo or not tattoo["photo_name"] or Path(tattoo["photo_name"]).name != tattoo["photo_name"]:
-            abort(404)
-        path = Path(app.config["TATTOO_UPLOAD_DIR"]) / tattoo["photo_name"]
-        if not path.is_file():
-            abort(404)
-        return send_file(path, conditional=True, max_age=0)
-
-    @app.post("/tatuajes/<int:tattoo_id>/foto/eliminar")
-    def delete_tattoo_photo(tattoo_id: int):
-        with _db_connection(app) as connection:
-            tattoo = connection.execute("SELECT photo_name FROM tattoos WHERE id = ?", (tattoo_id,)).fetchone()
-            if tattoo:
-                connection.execute("UPDATE tattoos SET photo_name = '' WHERE id = ?", (tattoo_id,))
-        if tattoo and tattoo["photo_name"]:
-            (Path(app.config["TATTOO_UPLOAD_DIR"]) / Path(tattoo["photo_name"]).name).unlink(missing_ok=True)
-        flash("Foto eliminada." if tattoo else "Proyecto no encontrado.", "success" if tattoo else "error")
-        return redirect(url_for("tattoos_page"))
-
-    @app.post("/tatuajes/<int:tattoo_id>/eliminar")
-    def delete_tattoo(tattoo_id: int):
-        with _db_connection(app) as connection:
-            tattoo = connection.execute("SELECT photo_name FROM tattoos WHERE id = ?", (tattoo_id,)).fetchone()
-            if tattoo:
-                connection.execute("DELETE FROM tattoos WHERE id = ?", (tattoo_id,))
-        if tattoo and tattoo["photo_name"]:
-            (Path(app.config["TATTOO_UPLOAD_DIR"]) / Path(tattoo["photo_name"]).name).unlink(missing_ok=True)
-        flash("Proyecto eliminado." if tattoo else "Proyecto no encontrado.", "success" if tattoo else "error")
-        return redirect(url_for("tattoos_page"))
 
     @app.errorhandler(413)
     def file_too_large(_error):
@@ -3428,4 +2792,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=app.config["PORT"], debug=True)
+    app.run(host="127.0.0.1", port=app.config["PORT"], debug=False)

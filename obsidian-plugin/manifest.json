@@ -1,9 +1,0 @@
-{
-  "id": "finanzas-local",
-  "name": "Finanzas",
-  "version": "1.0.0",
-  "minAppVersion": "1.8.0",
-  "description": "Organiza deudas, abonos e ingresos mediante una aplicación Python local integrada en una pestaña.",
-  "author": "Finanzas contributors",
-  "isDesktopOnly": true
-}

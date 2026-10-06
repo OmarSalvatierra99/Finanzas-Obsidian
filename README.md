@@ -84,9 +84,9 @@ Sustituye `python` por el ejecutable del entorno virtual. La ejecución periódi
 
 ## Obsidian
 
-Coloca la aplicación en `.finanzas/` dentro de tu bóveda. Copia `main.js`, `manifest.json` y `styles.css` de `obsidian-plugin/` a `.obsidian/plugins/finanzas-local/`. Activa **Finanzas** en los complementos de comunidad y configura el ejecutable de Python del entorno virtual en sus ajustes. El complemento utiliza el puerto `5028`.
+Coloca la aplicación en `.finanzas/` dentro de tu bóveda. Copia `main.js`, `manifest.json` y `styles.css` de la raíz del repositorio a `.obsidian/plugins/finanzas-local/`. Activa **Finanzas** en los complementos de comunidad y configura el ejecutable de Python del entorno virtual en sus ajustes. El complemento utiliza el puerto `5028`.
 
-Consulta [la documentación del complemento](obsidian-plugin/README.md). Los cambios de Python requieren reiniciar el servidor; los cambios del complemento requieren desactivarlo y volverlo a activar.
+Los cambios de Python requieren reiniciar el servidor; los cambios del complemento requieren desactivarlo y volverlo a activar.
 
 ## Pruebas
 

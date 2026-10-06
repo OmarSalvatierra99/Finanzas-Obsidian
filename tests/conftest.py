@@ -19,7 +19,7 @@ def environment(tmp_path, monkeypatch):
     monkeypatch.setattr(finance, "_local_today", lambda timezone: date(2026, 10, 5))
     app = finance.create_app({"TESTING": True, "AUTH_MODE": "none", "SECRET_KEY": "test-only",
                               "DATABASE_PATH": tmp_path / "test.sqlite3",
-                              "LOGS_DIR": tmp_path / "logs", "TATTOO_UPLOAD_DIR": tmp_path / "uploads"})
+                              "LOGS_DIR": tmp_path / "logs"})
     with finance._db_connection(app) as db:
         for table in ("xml_imports", "movement_allocations", "movements", "debt_balance_adjustments",
                       "scheduled_debt_payments", "debts", "commitment_exceptions", "recurring_commitments"):

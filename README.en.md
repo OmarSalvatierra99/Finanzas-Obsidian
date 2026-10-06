@@ -84,9 +84,9 @@ Replace `python` with your virtual environment executable. Periodic execution re
 
 ## Obsidian
 
-Place the application in `.finanzas/` inside your vault. Copy `main.js`, `manifest.json`, and `styles.css` from `obsidian-plugin/` into `.obsidian/plugins/finanzas-local/`. Enable **Finanzas** under community plugins and configure the virtual environment Python executable in the plugin settings. The plugin uses port `5028`.
+Place the application in `.finanzas/` inside your vault. Copy `main.js`, `manifest.json`, and `styles.css` from the repository root into `.obsidian/plugins/finanzas-local/`. Enable **Finanzas** under community plugins and configure the virtual environment Python executable in the plugin settings. The plugin uses port `5028`.
 
-See the [plugin documentation in Spanish](obsidian-plugin/README.md). Python changes require a server restart; plugin changes require disabling and enabling the plugin again.
+Python changes require a server restart; plugin changes require disabling and enabling the plugin again.
 
 ## Tests
 

@@ -11,7 +11,7 @@ def main():
     os.environ["QUINCENAL_INCOME_CENTS"]="1000000"
     import app as f
     f._local_today=lambda timezone:date(2026,10,5)
-    a=f.create_app({'TESTING':True,'AUTH_MODE':'none','SECRET_KEY':'browser-only','DATABASE_PATH':Path(temp.name)/'test.db','LOGS_DIR':Path(temp.name)/'logs','TATTOO_UPLOAD_DIR':Path(temp.name)/'uploads'})
+    a=f.create_app({'TESTING':True,'AUTH_MODE':'none','SECRET_KEY':'browser-only','DATABASE_PATH':Path(temp.name)/'test.db','LOGS_DIR':Path(temp.name)/'logs'})
     c=a.test_client()
     with c.session_transaction() as s:s['csrf_token']='test'
     def post(path,**fields):return c.post(path,data={'csrf_token':'test',**fields})

@@ -4,7 +4,7 @@ El repositorio contiene `manifest.json`, `main.js`, `styles.css`, `versions.json
 
 ## Releases
 
-Actualiza `version` en los dos manifiestos y `versions.json` antes de una nueva versión. Mantén `main.js` y `styles.css` de la raíz sincronizados con `obsidian-plugin/`. Ejecuta:
+Actualiza `version` en `manifest.json` y agrega la versión correspondiente en `versions.json` antes de una nueva release. Los archivos del complemento se mantienen únicamente en la raíz. Ejecuta:
 
 ```bash
 python scripts/build_plugin_release.py
@@ -13,9 +13,9 @@ python scripts/build_plugin_release.py
 Confirma los cambios y publica un tag que coincida exactamente con la versión del manifiesto, sin prefijo `v`:
 
 ```bash
-git tag 1.0.0
+git tag 1.0.1
 git push origin main
-git push origin 1.0.0
+git push origin 1.0.1
 ```
 
 El workflow `Publish Obsidian release` crea la release de GitHub y adjunta `main.js`, `manifest.json` y `styles.css`. Utiliza el token temporal de GitHub Actions; no requiere guardar un token personal en el repositorio.

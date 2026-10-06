@@ -1,10 +1,10 @@
-Finanzas 1.0.0
+Finanzas 1.0.1
 
-- Abre el calendario, deudas, ingresos y ajustes en una pestaña de Obsidian de escritorio.
-- Adapta la interfaz al tema de la bóveda.
-- Permite iniciar un servidor Python local instalado por el usuario.
-- El inicio del servidor con la bóveda está desactivado por defecto.
-- Distribución con licencia MIT y sin datos financieros, credenciales ni ajustes personales.
+- Elimina pantallas antiguas, funciones sin referencias y componentes de ejercicio, peso y tatuajes ajenos a las finanzas.
+- Mantiene los archivos del complemento únicamente en la raíz del repositorio.
+- Retira el lanzador redundante y la dependencia Pillow, que ya no se utilizan.
+- Conserva el acceso local, el calendario, las deudas, los abonos y las integraciones opcionales de Gmail.
+- Permite editar la cuenta de Gmail desde Ajustes.
 
 Requiere Python 3.11 o superior y la aplicación Flask instalada manualmente en `.finanzas/` dentro de la bóveda. Consulta el README para configurar el acceso local. El complemento no instala dependencias.
 
